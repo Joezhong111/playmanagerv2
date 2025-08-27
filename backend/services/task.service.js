@@ -9,7 +9,8 @@ class TaskService {
   async createTask(taskData, dispatcherId) {
     const { player_id } = taskData;
 
-    // 如果指定了陪玩员，验证是否存在且空闲
+    // 如果指定了陪玩员，验证是否存在
+    let playerStatus = null;
     if (player_id) {
       const player = await userRepository.findById(player_id);
       if (!player) {
@@ -18,22 +19,43 @@ class TaskService {
       if (player.role !== 'player') {
         throw new ValidationError('User is not a player');
       }
-      if (player.status !== 'idle') {
-        throw new ValidationError('Player is not available');
-      }
+      playerStatus = player.status;
     }
 
     const connection = await pool.getConnection();
     await connection.beginTransaction();
 
     try {
-      const taskStatus = player_id ? 'accepted' : 'pending';
-      const fullTaskData = { ...taskData, dispatcher_id: dispatcherId, status: taskStatus };
+      // 根据陪玩员状态决定任务状态和排队信息
+      let taskStatus, queueOrder = null, queuedAt = null;
+      
+      if (!player_id) {
+        taskStatus = 'pending';
+      } else if (playerStatus === 'idle') {
+        taskStatus = 'accepted';
+      } else if (playerStatus === 'busy') {
+        taskStatus = 'queued';
+        // 获取该陪玩员当前的最大队列顺序
+        const [queueResult] = await connection.execute(
+          'SELECT MAX(queue_order) as max_order FROM tasks WHERE player_id = ? AND status = "queued"',
+          [player_id]
+        );
+        queueOrder = (queueResult[0]?.max_order || 0) + 1;
+        queuedAt = new Date();
+      }
+
+      const fullTaskData = { 
+        ...taskData, 
+        dispatcher_id: dispatcherId, 
+        status: taskStatus,
+        queue_order: queueOrder,
+        queued_at: queuedAt
+      };
 
       const taskId = await taskRepository.create(connection, fullTaskData);
 
-      if (player_id) {
-        // 接受任务时不改变状态，只记录接受时间
+      if (player_id && taskStatus === 'accepted') {
+        // 只有立即接受的任务才记录接受时间
         await taskRepository.update(taskId, { accepted_at: new Date() }, connection);
       }
 
@@ -185,10 +207,27 @@ class TaskService {
       await userRepository.updateStatus(playerId, 'idle', connection);
       await taskRepository.log(taskId, playerId, 'complete', null, connection);
 
+      // 自动激活下一个排队任务
+      const nextQueuedTask = await taskRepository.getNextQueuedTask(playerId, connection);
+      if (nextQueuedTask) {
+        console.log(`[completeTask] 自动激活下一个排队任务 ${nextQueuedTask.id}`);
+        await taskRepository.update(
+          nextQueuedTask.id, 
+          { 
+            status: 'accepted', 
+            accepted_at: new Date(),
+            queue_order: null,
+            queued_at: null
+          }, 
+          connection
+        );
+        await taskRepository.log(nextQueuedTask.id, playerId, 'auto_accept_from_queue', { previousTaskId: taskId }, connection);
+      }
+
       await connection.commit();
 
       const updatedTask = await taskRepository.findById(taskId);
-      return updatedTask;
+      return { completedTask: updatedTask, nextTask: nextQueuedTask };
 
     } catch (error) {
       await connection.rollback();

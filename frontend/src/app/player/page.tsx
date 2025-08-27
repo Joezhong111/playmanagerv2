@@ -29,6 +29,7 @@ export default function PlayerPage() {
   const router = useRouter();
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [myTasks, setMyTasks] = useState<Task[]>([]);
+  const [queuedTasks, setQueuedTasks] = useState<Task[]>([]);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -52,19 +53,23 @@ export default function PlayerPage() {
   const loadTasks = async () => {
     try {
       setIsLoadingTasks(true);
-      const allTasks = await tasksApi.getAll();
+      const [allTasks, queuedTasksData] = await Promise.all([
+        tasksApi.getAll(),
+        tasksApi.getQueuedTasks()
+      ]);
       
       // Filter tasks for player
       const available = allTasks.filter(task => 
         task.status === 'pending' && (!task.player_id || task.player_id === null)
       );
       const mine = allTasks.filter(task => 
-        task.player_id === user?.id && task.status !== 'completed' && task.status !== 'cancelled'
+        task.player_id === user?.id && ['accepted', 'in_progress', 'paused'].includes(task.status)
       );
       const current = mine.find(task => task.status === 'in_progress' || task.status === 'paused') || null;
 
       setAvailableTasks(available);
       setMyTasks(mine);
+      setQueuedTasks(queuedTasksData);
       setCurrentTask(current);
     } catch (error: any) {
       console.error('Error loading tasks:', error);
@@ -115,8 +120,15 @@ export default function PlayerPage() {
     
     setIsTaskActionLoading(true);
     try {
-      await tasksApi.complete(taskId);
-      toast.success('任务完成！');
+      const result = await tasksApi.complete(taskId);
+      
+      // 检查是否有下一个任务被激活
+      if (result.nextTask) {
+        toast.success(`任务完成！下一个任务"${result.nextTask.game_name}"已准备就绪`);
+      } else {
+        toast.success('任务完成！');
+      }
+      
       await loadTasks();
     } catch (error: any) {
       console.error('Error completing task:', error);
@@ -194,8 +206,9 @@ export default function PlayerPage() {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800',
       accepted: 'bg-blue-100 text-blue-800',
+      queued: 'bg-orange-100 text-orange-800',
       in_progress: 'bg-purple-100 text-purple-800',
-      paused: 'bg-orange-100 text-orange-800',
+      paused: 'bg-gray-100 text-gray-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
     };
@@ -206,6 +219,7 @@ export default function PlayerPage() {
     const texts = {
       pending: '待接受',
       accepted: '已接受',
+      queued: '排队中',
       in_progress: '进行中',
       paused: '已暂停',
       completed: '已完成',
@@ -429,6 +443,56 @@ export default function PlayerPage() {
                     </Button>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Queued Tasks - 只在有排队任务时显示 */}
+        {queuedTasks.length > 0 && (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardHeader>
+              <CardTitle className="flex items-center text-orange-800">
+                <Clock className="w-5 h-5 mr-2" />
+                排队等待的任务 ({queuedTasks.length})
+              </CardTitle>
+              <CardDescription>
+                这些任务正在等待您完成当前任务后开始
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {queuedTasks.map((task, index) => (
+                  <div key={task.id} className="p-3 bg-white border border-orange-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center font-semibold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">{task.game_name}</div>
+                          <div className="text-xs text-gray-600">{task.game_mode}</div>
+                        </div>
+                      </div>
+                      <Badge className="bg-orange-100 text-orange-800">
+                        排队中
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <div className="flex items-center space-x-3">
+                        <span className="flex items-center">
+                          <User className="w-3 h-3 mr-1" />
+                          {task.customer_name}
+                        </span>
+                        <span className="flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {formatDuration(task.duration)}
+                        </span>
+                      </div>
+                      <span className="font-semibold text-green-600">¥{task.price}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

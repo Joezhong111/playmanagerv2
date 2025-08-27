@@ -307,7 +307,7 @@ export default function CreateTaskPage() {
                   选择陪玩员
                 </CardTitle>
                 <CardDescription>
-                  可选择直接分配给指定陪玩员，或留空让陪玩员自由接取
+                  可选择直接分配给指定陪玩员，或留空让陪玩员自由接取。忙碌中的陪玩员任务将进入排队等待。
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -344,10 +344,22 @@ export default function CreateTaskPage() {
                           </Badge>
                         </div>
                         <div className="text-xs text-gray-500">
-                          {player.updated_at ? 
-                            `最后活跃：${new Date(player.updated_at).toLocaleDateString('zh-CN')}` : 
-                            '活跃状态未知'
-                          }
+                          {player.status === 'busy' ? (
+                            <div className="space-y-1">
+                              <div>正在执行任务中，新任务将排队等待</div>
+                              <div>{player.updated_at ? 
+                                `最后活跃：${new Date(player.updated_at).toLocaleDateString('zh-CN')}` : 
+                                '活跃状态未知'
+                              }</div>
+                            </div>
+                          ) : (
+                            <div>
+                              {player.updated_at ? 
+                                `最后活跃：${new Date(player.updated_at).toLocaleDateString('zh-CN')}` : 
+                                '活跃状态未知'
+                              }
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

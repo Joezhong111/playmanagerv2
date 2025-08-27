@@ -51,7 +51,9 @@ export interface Task {
   requirements?: string;
   dispatcher_id: number;
   player_id?: number | null;
-  status: 'pending' | 'accepted' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+  status: 'pending' | 'accepted' | 'queued' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+  queue_order?: number | null;
+  queued_at?: string | null;
   created_at: string;
   accepted_at?: string | null;
   started_at?: string | null;
@@ -85,7 +87,7 @@ export interface UpdateStatusRequest {
 }
 
 export interface TaskQuery {
-  status?: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+  status?: 'pending' | 'accepted' | 'queued' | 'in_progress' | 'completed' | 'cancelled';
   player_id?: number;
   dispatcher_id?: number;
   page?: number;

@@ -187,6 +187,13 @@ export const tasksApi = {
     const response = await api.put<ApiResponse<Task>>(`/tasks/${id}/extend-duration`, data);
     return handleResponse(response);
   },
+
+  // 获取排队任务
+  async getQueuedTasks(playerId?: number): Promise<Task[]> {
+    const params = playerId ? { playerId } : {};
+    const response = await api.get<ApiResponse<Task[]>>('/tasks/queued', { params });
+    return handleResponse(response);
+  },
 };
 
 // Users API

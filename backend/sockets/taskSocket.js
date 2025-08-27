@@ -146,6 +146,16 @@ function handleTaskEvents(socket, io) {
   socket.on('extension_requested', (data) => broadcastExtensionEvent(data.requestId, 'extension_requested'));
   socket.on('extension_reviewed', (data) => broadcastExtensionEvent(data.requestId, 'extension_reviewed'));
   socket.on('duration_extended', (data) => broadcastTaskStatusChange(data.taskId, 'duration_extended'));
+  
+  // 排队任务相关事件
+  socket.on('task_queued', (data) => {
+    console.log(`[Socket] 收到 task_queued 事件: ${data.taskId}`);
+    broadcastTaskStatusChange(data.taskId, 'task_queued');
+  });
+  socket.on('queue_updated', (data) => {
+    console.log(`[Socket] 收到 queue_updated 事件，陪玩员: ${data.playerId}`);
+    io.to('dispatchers').to(`player_${data.playerId}`).emit('task_queue_updated', data);
+  });
 
   socket.on('status_changed', (data) => {
     io.to('dispatchers').emit('player_status_changed', { userId: user.id, username: user.username, status: data.status });

@@ -44,6 +44,9 @@ router.get('/', authenticateToken, taskController.getTasks);
 router.get('/extension-requests', authenticateToken, extensionController.getExtensionRequests);
 router.get('/extension-requests/my', authenticateToken, extensionController.getMyExtensionRequests);
 
+// 排队管理相关路由 - 必须在 /:id 之前定义
+router.get('/queued', authenticateToken, taskController.getQueuedTasks);
+
 router.get('/:id', authenticateToken, taskController.getTaskById);
 
 router.put('/:id/accept', authenticateToken, requireRole('player'), taskController.acceptTask);
