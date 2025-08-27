@@ -1,0 +1,4 @@
+{"level":"info","message":"🚀 派单系统后端启动成功","service":"playmanager-api","timestamp":"2025-08-27T04:50:31.424Z"}
+{"level":"info","message":"📡 服务器地址: http://localhost:3000","service":"playmanager-api","timestamp":"2025-08-27T04:50:31.425Z"}
+{"level":"info","message":"🔌 WebSocket端口: 3000","service":"playmanager-api","timestamp":"2025-08-27T04:50:31.425Z"}
+{"level":"info","message":"✅ 系统就绪，等待连接...","service":"playmanager-api","timestamp":"2025-08-27T04:50:31.442Z"}

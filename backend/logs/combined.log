@@ -1,0 +1,16 @@
+{"level":"info","message":"🚀 派单系统后端启动成功","service":"playmanager-api","timestamp":"2025-08-27T06:07:06.848Z"}
+{"level":"info","message":"📡 服务器地址: http://localhost:3003","service":"playmanager-api","timestamp":"2025-08-27T06:07:06.849Z"}
+{"level":"info","message":"🔌 WebSocket端口: 3003","service":"playmanager-api","timestamp":"2025-08-27T06:07:06.849Z"}
+{"level":"info","message":"✅ 系统就绪，等待连接...","service":"playmanager-api","timestamp":"2025-08-27T06:07:09.465Z"}
+{"level":"info","message":"🚀 派单系统后端启动成功","service":"playmanager-api","timestamp":"2025-08-27T12:08:52.262Z"}
+{"level":"info","message":"📡 服务器地址: http://localhost:3003","service":"playmanager-api","timestamp":"2025-08-27T12:08:52.264Z"}
+{"level":"info","message":"🔌 WebSocket端口: 3003","service":"playmanager-api","timestamp":"2025-08-27T12:08:52.264Z"}
+{"level":"info","message":"✅ 系统就绪，等待连接...","service":"playmanager-api","timestamp":"2025-08-27T12:08:54.631Z"}
+{"level":"info","message":"🚀 派单系统后端启动成功","service":"playmanager-api","timestamp":"2025-08-27T12:14:02.030Z"}
+{"level":"info","message":"📡 服务器地址: http://localhost:3003","service":"playmanager-api","timestamp":"2025-08-27T12:14:02.032Z"}
+{"level":"info","message":"🔌 WebSocket端口: 3003","service":"playmanager-api","timestamp":"2025-08-27T12:14:02.032Z"}
+{"level":"info","message":"✅ 系统就绪，等待连接...","service":"playmanager-api","timestamp":"2025-08-27T12:14:03.506Z"}
+{"level":"info","message":"🚀 派单系统后端启动成功","service":"playmanager-api","timestamp":"2025-08-27T13:28:23.061Z"}
+{"level":"info","message":"📡 服务器地址: http://localhost:3003","service":"playmanager-api","timestamp":"2025-08-27T13:28:23.063Z"}
+{"level":"info","message":"🔌 WebSocket端口: 3003","service":"playmanager-api","timestamp":"2025-08-27T13:28:23.063Z"}
+{"level":"info","message":"✅ 系统就绪，等待连接...","service":"playmanager-api","timestamp":"2025-08-27T13:28:24.663Z"}
