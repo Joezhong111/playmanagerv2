@@ -60,7 +60,7 @@ export default function PlayerPage() {
       const mine = allTasks.filter(task => 
         task.player_id === user?.id && task.status !== 'completed' && task.status !== 'cancelled'
       );
-      const current = mine.find(task => task.status === 'in_progress') || null;
+      const current = mine.find(task => task.status === 'in_progress' || task.status === 'paused') || null;
 
       setAvailableTasks(available);
       setMyTasks(mine);
@@ -151,6 +151,7 @@ export default function PlayerPage() {
       pending: 'bg-yellow-100 text-yellow-800',
       accepted: 'bg-blue-100 text-blue-800',
       in_progress: 'bg-purple-100 text-purple-800',
+      paused: 'bg-orange-100 text-orange-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
     };
@@ -162,6 +163,7 @@ export default function PlayerPage() {
       pending: '待接受',
       accepted: '已接受',
       in_progress: '进行中',
+      paused: '已暂停',
       completed: '已完成',
       cancelled: '已取消',
     };
@@ -312,16 +314,28 @@ export default function PlayerPage() {
                     </Badge>
                   </div>
                   <div className="flex justify-center space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handlePauseTask(currentTask.id)}
-                    >
-                      <Pause className="w-4 h-4 mr-1" />
-                      暂停
-                    </Button>
+                    {currentTask.status === 'in_progress' ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePauseTask(currentTask.id)}
+                      >
+                        <Pause className="w-4 h-4 mr-1" />
+                        暂停
+                      </Button>
+                    ) : currentTask.status === 'paused' ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleResumeTask(currentTask.id)}
+                        className="border-green-500 text-green-600 hover:bg-green-50"
+                      >
+                        <Play className="w-4 h-4 mr-1" />
+                        继续
+                      </Button>
+                    ) : null}
                     <Button
                       onClick={() => handleCompleteTask(currentTask.id)}
                       className="bg-green-600 hover:bg-green-700"
+                      disabled={currentTask.status === 'paused'}
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
                       完成任务

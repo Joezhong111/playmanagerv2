@@ -82,6 +82,7 @@ export default function DispatcherPage() {
       pending: 'bg-yellow-100 text-yellow-800',
       accepted: 'bg-blue-100 text-blue-800',
       in_progress: 'bg-purple-100 text-purple-800',
+      paused: 'bg-orange-100 text-orange-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
     };
@@ -93,6 +94,7 @@ export default function DispatcherPage() {
       pending: '待接受',
       accepted: '已接受',
       in_progress: '进行中',
+      paused: '已暂停',
       completed: '已完成',
       cancelled: '已取消',
     };
@@ -128,7 +130,7 @@ export default function DispatcherPage() {
   const taskStats = {
     total: tasks.length,
     pending: tasks.filter(t => t.status === 'pending').length,
-    in_progress: tasks.filter(t => t.status === 'in_progress').length,
+    in_progress: tasks.filter(t => t.status === 'in_progress' || t.status === 'paused').length,
     completed: tasks.filter(t => t.status === 'completed').length,
   };
 
@@ -241,6 +243,7 @@ export default function DispatcherPage() {
                       <option value="pending">待接受</option>
                       <option value="accepted">已接受</option>
                       <option value="in_progress">进行中</option>
+                      <option value="paused">已暂停</option>
                       <option value="completed">已完成</option>
                       <option value="cancelled">已取消</option>
                     </select>

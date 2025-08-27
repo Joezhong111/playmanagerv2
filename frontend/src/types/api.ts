@@ -50,7 +50,7 @@ export interface Task {
   requirements?: string;
   dispatcher_id: number;
   player_id?: number | null;
-  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'accepted' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
   created_at: string;
   accepted_at?: string | null;
   started_at?: string | null;

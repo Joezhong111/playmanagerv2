@@ -40,7 +40,7 @@ router.post('/init', async (req, res) => {
         requirements TEXT COMMENT '特殊要求',
         dispatcher_id INT NOT NULL COMMENT '派单员ID',
         player_id INT COMMENT '陪玩员ID',
-        status ENUM('pending', 'accepted', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending' COMMENT '任务状态',
+        status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled') DEFAULT 'pending' COMMENT '任务状态',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         accepted_at TIMESTAMP NULL COMMENT '接受时间',
         started_at TIMESTAMP NULL COMMENT '开始时间', 
@@ -188,6 +188,43 @@ router.get('/status', async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+// 更新数据库架构 - 添加 paused 状态到任务表
+router.post('/update-schema', async (req, res) => {
+  const connection = await pool.getConnection();
+  
+  try {
+    console.log('开始更新数据库架构...');
+
+    // 修改任务表的状态枚举，添加 paused 状态
+    await connection.execute(`
+      ALTER TABLE tasks 
+      MODIFY COLUMN status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled') 
+      DEFAULT 'pending' 
+      COMMENT '任务状态'
+    `);
+    
+    console.log('✅ 任务表状态枚举更新成功');
+
+    res.json({
+      success: true,
+      message: '数据库架构更新完成',
+      data: {
+        updatedColumns: ['tasks.status'],
+        addedStatuses: ['paused']
+      }
+    });
+
+  } catch (error) {
+    console.error('数据库架构更新失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '数据库架构更新失败: ' + error.message
+    });
+  } finally {
+    connection.release();
   }
 });
 
