@@ -69,6 +69,45 @@ class TaskRepository {
     return result.affectedRows;
   }
 
+  // 更新任务状态
+  async updateTaskStatus(id, status, connection = pool) {
+    const [result] = await connection.execute(
+      'UPDATE tasks SET status = ? WHERE id = ?',
+      [status, id]
+    );
+    return result.affectedRows > 0;
+  }
+
+  // 查找需要处理超时的任务
+  async findOvertimeTasks(connection = pool) {
+    const [rows] = await connection.execute(`
+      SELECT t.*, 
+             d.username as dispatcher_name,
+             p.username as player_name
+      FROM tasks t
+      LEFT JOIN users d ON t.dispatcher_id = d.id
+      LEFT JOIN users p ON t.player_id = p.id
+      WHERE t.status = 'in_progress' 
+        AND t.overtime_at IS NOT NULL 
+        AND t.overtime_at <= NOW()
+        AND t.started_at IS NOT NULL
+    `);
+    return rows;
+  }
+
+  // 获取超时统计信息
+  async getOvertimeStats(connection = pool) {
+    const [rows] = await connection.execute(`
+      SELECT 
+        COUNT(*) as total_overtime_tasks,
+        COUNT(CASE WHEN status = 'overtime' THEN 1 END) as current_overtime_tasks,
+        COUNT(CASE WHEN status = 'in_progress' AND overtime_at <= NOW() THEN 1 END) as pending_overtime_tasks
+      FROM tasks 
+      WHERE overtime_at IS NOT NULL
+    `);
+    return rows[0];
+  }
+
   async log(taskId, userId, action, details, connection = pool) {
     await connection.execute(
       'INSERT INTO task_logs (task_id, user_id, action, details) VALUES (?, ?, ?, ?)',

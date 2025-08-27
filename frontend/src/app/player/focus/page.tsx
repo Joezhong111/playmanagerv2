@@ -332,6 +332,7 @@ export default function FocusPage() {
       paused: 'bg-orange-100 text-orange-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
+      overtime: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -344,6 +345,7 @@ export default function FocusPage() {
       paused: '已暂停',
       completed: '已完成',
       cancelled: '已取消',
+      overtime: '已超时',
     };
     return texts[status] || status;
   };
@@ -407,12 +409,14 @@ export default function FocusPage() {
               </div>
               <div className="flex items-center justify-center space-x-2">
                 <p className="text-gray-600">
-                  {task.status === 'in_progress' 
-                    ? (isOvertime ? '任务超时中...' : '任务进行中...') 
-                    : '任务已暂停'
+                  {task.status === 'overtime' 
+                    ? '任务已超时' 
+                    : task.status === 'in_progress' 
+                      ? (isOvertime ? '任务超时中...' : '任务进行中...') 
+                      : '任务已暂停'
                   }
                 </p>
-                {isOvertime && task.status === 'in_progress' && (
+                {(isOvertime && (task.status === 'in_progress' || task.status === 'overtime')) && (
                   <span className="px-2 py-1 text-xs bg-red-100 text-red-600 rounded-full">
                     已超时
                   </span>
@@ -466,7 +470,7 @@ export default function FocusPage() {
             </div>
 
             {/* 手动申请加钟按钮 */}
-            {!showExtensionButtons && task.status === 'in_progress' && (
+            {!showExtensionButtons && (task.status === 'in_progress' || task.status === 'overtime') && (
               <div className="mb-4 text-center">
                 <Button
                   variant="outline"
@@ -480,7 +484,7 @@ export default function FocusPage() {
             )}
 
             {/* 加钟申请按钮组 */}
-            {showExtensionButtons && task.status === 'in_progress' && (
+            {showExtensionButtons && (task.status === 'in_progress' || task.status === 'overtime') && (
               <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="text-center mb-3">
                   <h4 className="font-semibold text-amber-800 mb-2 flex items-center justify-center">
@@ -563,14 +567,14 @@ export default function FocusPage() {
                 size="lg"
                 onClick={handleCompleteTask}
                 disabled={task.status === 'paused' || isActionLoading}
-                className="px-8 bg-green-600 hover:bg-green-700"
+                className={`px-8 ${task.status === 'overtime' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
               >
                 {isActionLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 ) : (
                   <CheckCircle className="w-4 h-4 mr-2" />
                 )}
-                完成任务
+                {task.status === 'overtime' ? '结束超时任务' : '完成任务'}
               </Button>
             </div>
           </CardContent>

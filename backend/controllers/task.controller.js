@@ -117,9 +117,10 @@ class TaskController {
 
   completeTask = asyncHandler(async (req, res, next) => {
     const taskId = req.params.id;
-    const playerId = req.user.userId;
-    console.log(`[Controller] 完成任务 ${taskId}，陪玩员 ${playerId}`);
-    const result = await taskService.completeTask(taskId, playerId);
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    console.log(`[Controller] 完成任务 ${taskId}，用户 ${userId}，角色 ${userRole}`);
+    const result = await taskService.completeTask(taskId, userId, userRole);
     const { completedTask, nextTask } = result;
 
     // 广播任务完成事件

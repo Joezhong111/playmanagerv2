@@ -66,13 +66,14 @@ export interface Task {
   requirements?: string;
   dispatcher_id: number;
   player_id?: number | null;
-  status: 'pending' | 'accepted' | 'queued' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+  status: 'pending' | 'accepted' | 'queued' | 'in_progress' | 'paused' | 'completed' | 'cancelled' | 'overtime';
   queue_order?: number | null;
   queued_at?: string | null;
   created_at: string;
   accepted_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+  overtime_at?: string | null; // 任务超时时间
 }
 
 export interface CreateTaskRequest {

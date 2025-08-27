@@ -211,6 +211,7 @@ export default function PlayerPage() {
       paused: 'bg-gray-100 text-gray-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
+      overtime: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -224,6 +225,7 @@ export default function PlayerPage() {
       paused: '已暂停',
       completed: '已完成',
       cancelled: '已取消',
+      overtime: '已超时',
     };
     return texts[status] || status;
   };

@@ -53,7 +53,7 @@ router.put('/:id/accept', authenticateToken, requireRole('player'), taskControll
 
 router.put('/:id/start', authenticateToken, requireRole('player'), taskController.startTask);
 
-router.put('/:id/complete', authenticateToken, requireRole('player'), taskController.completeTask);
+router.put('/:id/complete', authenticateToken, taskController.completeTask);
 
 router.put('/:id/cancel', authenticateToken, taskController.cancelTask);
 

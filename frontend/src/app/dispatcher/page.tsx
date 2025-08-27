@@ -19,7 +19,8 @@ import {
   UserCheck,
   AlertCircle,
   Timer,
-  Edit
+  Edit,
+  CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi, usersApi } from '@/lib/api';
@@ -166,12 +167,25 @@ export default function DispatcherPage() {
         socket.on('task_started', handleTaskStarted);
         socket.on('task_completed', handleTaskCompleted);
 
+        // 监听任务超时事件
+        const handleTaskOvertime = (task: Task) => {
+          console.log('[前端] 任务超时事件:', task);
+          setTasks(prevTasks => 
+            prevTasks.map(t => t.id === task.id ? task : t)
+          );
+          loadPlayerDetails(); // 更新陪玩员统计信息
+          toast.warning(`任务 "${task.customer_name}" 已超时`);
+        };
+
+        socket.on('task_overtime', handleTaskOvertime);
+
         return () => {
           socket.off('task_status_changed', handleTaskStatusChange);
           socket.off('new_task', handleNewTask);
           socket.off('player_status_changed', handlePlayerStatusChange);
           socket.off('task_started', handleTaskStarted);
           socket.off('task_completed', handleTaskCompleted);
+          socket.off('task_overtime', handleTaskOvertime);
         };
       }
     }
@@ -237,6 +251,17 @@ export default function DispatcherPage() {
     }
   };
 
+  const handleCompleteTask = async (taskId: number) => {
+    try {
+      const result = await tasksApi.complete(taskId);
+      toast.success('任务已完成！');
+      await loadTasks();
+    } catch (error: any) {
+      console.error('Error completing task:', error);
+      toast.error(error.response?.data?.message || '完成任务失败');
+    }
+  };
+
   const getStatusColor = (status: Task['status']) => {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800',
@@ -246,6 +271,7 @@ export default function DispatcherPage() {
       paused: 'bg-orange-100 text-orange-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
+      overtime: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -259,6 +285,7 @@ export default function DispatcherPage() {
       paused: '已暂停',
       completed: '已完成',
       cancelled: '已取消',
+      overtime: '已超时',
     };
     return texts[status] || status;
   };
@@ -418,6 +445,7 @@ export default function DispatcherPage() {
                       <option value="paused">已暂停</option>
                       <option value="completed">已完成</option>
                       <option value="cancelled">已取消</option>
+                      <option value="overtime">已超时</option>
                     </select>
                   </div>
                 </div>
@@ -490,7 +518,7 @@ export default function DispatcherPage() {
                                   <Edit className="w-3 h-3 mr-1" />
                                   编辑
                                 </Button>
-                                {['accepted', 'in_progress', 'paused'].includes(task.status) && (
+                                {['accepted', 'in_progress', 'paused', 'overtime'].includes(task.status) && (
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -499,6 +527,17 @@ export default function DispatcherPage() {
                                   >
                                     <Timer className="w-3 h-3 mr-1" />
                                     延长
+                                  </Button>
+                                )}
+                                {['in_progress', 'paused', 'overtime'].includes(task.status) && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCompleteTask(task.id)}
+                                    className="text-green-600 border-green-200 hover:bg-green-50"
+                                  >
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    完成
                                   </Button>
                                 )}
                                 {task.status === 'queued' && (

@@ -20,6 +20,9 @@ import { taskController } from './controllers/task.controller.js';
 // Socket处理导入
 import { handleSocketConnection } from './sockets/taskSocket.js';
 
+// 超时检测服务导入
+import { overtimeService, setGlobalIo } from './services/overtime.service.js';
+
 config();
 
 const app = express();
@@ -40,6 +43,9 @@ const io = new Server(server, {
 
 // 将 io 实例传递给控制器
 taskController.setSocketIO(io);
+
+// 设置全局io实例供超时检测服务使用
+setGlobalIo(io);
 
 // 中间件配置
 app.use(cors(corsOptions));
@@ -104,12 +110,25 @@ server.listen(PORT, async () => {
   await testConnection();
   await validateTimezone();
   
+  // 启动超时检测服务
+  overtimeService.start();
+  logger.info('⏰ 超时检测服务已启动');
+  
   logger.info('✅ 系统就绪，等待连接...');
 });
 
 // 优雅关闭
 process.on('SIGTERM', () => {
   logger.info('收到终止信号，正在关闭服务器...');
+  overtimeService.stop();
+  server.close(() => {
+    logger.info('服务器已关闭');
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('收到中断信号，正在关闭服务器...');
+  overtimeService.stop();
   server.close(() => {
     logger.info('服务器已关闭');
   });

@@ -40,11 +40,12 @@ router.post('/init', async (req, res) => {
         requirements TEXT COMMENT '特殊要求',
         dispatcher_id INT NOT NULL COMMENT '派单员ID',
         player_id INT COMMENT '陪玩员ID',
-        status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled') DEFAULT 'pending' COMMENT '任务状态',
+        status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled', 'overtime') DEFAULT 'pending' COMMENT '任务状态',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         accepted_at TIMESTAMP NULL COMMENT '接受时间',
         started_at TIMESTAMP NULL COMMENT '开始时间', 
-        completed_at TIMESTAMP NULL COMMENT '完成时间'
+        completed_at TIMESTAMP NULL COMMENT '完成时间',
+        overtime_at DATETIME NULL COMMENT '任务超时时间'
       ) COMMENT '任务表'
     `);
     console.log('✅ 任务表创建成功');
@@ -217,17 +218,17 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// 更新数据库架构 - 添加 paused 状态到任务表
+// 更新数据库架构 - 添加 paused 和 overtime 状态到任务表
 router.post('/update-schema', async (req, res) => {
   const connection = await pool.getConnection();
   
   try {
     console.log('开始更新数据库架构...');
 
-    // 修改任务表的状态枚举，添加 paused 状态
+    // 修改任务表的状态枚举，添加 paused 和 overtime 状态
     await connection.execute(`
       ALTER TABLE tasks 
-      MODIFY COLUMN status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled') 
+      MODIFY COLUMN status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled', 'overtime') 
       DEFAULT 'pending' 
       COMMENT '任务状态'
     `);
@@ -244,21 +245,148 @@ router.post('/update-schema', async (req, res) => {
     
     console.log('✅ 用户表状态枚举更新成功');
 
+    // 添加超时时间列到任务表
+    await connection.execute(`
+      ALTER TABLE tasks 
+      ADD COLUMN overtime_at DATETIME NULL COMMENT '任务超时时间'
+    `);
+    
+    console.log('✅ 添加 overtime_at 列成功');
+
     res.json({
       success: true,
       message: '数据库架构更新完成',
       data: {
-        updatedColumns: ['tasks.status'],
-        addedStatuses: ['paused']
+        updatedColumns: ['tasks.status', 'tasks.overtime_at'],
+        addedStatuses: ['paused', 'overtime']
       }
     });
 
   } catch (error) {
-    console.error('数据库架构更新失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '数据库架构更新失败: ' + error.message
+    // 如果列已存在，忽略错误
+    if (error.code === 'ER_DUP_FIELDNAME') {
+      console.log('ℹ️ overtime_at 列已存在，跳过添加');
+      
+      try {
+        // 仍然尝试更新状态枚举
+        await connection.execute(`
+          ALTER TABLE tasks 
+          MODIFY COLUMN status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled', 'overtime') 
+          DEFAULT 'pending' 
+          COMMENT '任务状态'
+        `);
+        
+        console.log('✅ 任务表状态枚举更新成功');
+
+        // 修改用户表的状态枚举，添加 offline 状态
+        await connection.execute(`
+          ALTER TABLE users 
+          MODIFY COLUMN status ENUM('idle', 'busy', 'offline') 
+          DEFAULT 'idle' 
+          COMMENT '用户状态'
+        `);
+        
+        console.log('✅ 用户表状态枚举更新成功');
+
+        res.json({
+          success: true,
+          message: '数据库架构更新完成（部分更新已存在）',
+          data: {
+            updatedColumns: ['tasks.status'],
+            addedStatuses: ['paused', 'overtime']
+          }
+        });
+      } catch (enumError) {
+        console.error('状态枚举更新失败:', enumError);
+        res.status(500).json({
+          success: false,
+          message: '状态枚举更新失败: ' + enumError.message
+        });
+      }
+    } else {
+      console.error('数据库架构更新失败:', error);
+      res.status(500).json({
+        success: false,
+        message: '数据库架构更新失败: ' + error.message
+      });
+    }
+  } finally {
+    connection.release();
+  }
+});
+
+// 更新数据库架构 - 添加超时功能支持
+router.post('/update-timeout-schema', async (req, res) => {
+  const connection = await pool.getConnection();
+  
+  try {
+    console.log('开始更新数据库架构以支持超时功能...');
+
+    // 添加超时时间列到任务表
+    await connection.execute(`
+      ALTER TABLE tasks 
+      ADD COLUMN overtime_at DATETIME NULL COMMENT '任务超时时间'
+    `);
+    
+    console.log('✅ 添加 overtime_at 列成功');
+
+    // 修改任务表的状态枚举，添加 overtime 状态
+    await connection.execute(`
+      ALTER TABLE tasks 
+      MODIFY COLUMN status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled', 'overtime') 
+      DEFAULT 'pending' 
+      COMMENT '任务状态'
+    `);
+    
+    console.log('✅ 任务表状态枚举添加 overtime 状态成功');
+
+    res.json({
+      success: true,
+      message: '数据库超时功能架构更新完成',
+      data: {
+        updatedColumns: ['tasks.overtime_at', 'tasks.status'],
+        addedStatuses: ['overtime']
+      }
     });
+
+  } catch (error) {
+    // 如果列已存在，忽略错误
+    if (error.code === 'ER_DUP_FIELDNAME') {
+      console.log('ℹ️ overtime_at 列已存在，跳过添加');
+      
+      // 尝试更新状态枚举
+      try {
+        await connection.execute(`
+          ALTER TABLE tasks 
+          MODIFY COLUMN status ENUM('pending', 'accepted', 'in_progress', 'paused', 'completed', 'cancelled', 'overtime') 
+          DEFAULT 'pending' 
+          COMMENT '任务状态'
+        `);
+        
+        console.log('✅ 任务表状态枚举添加 overtime 状态成功');
+        
+        res.json({
+          success: true,
+          message: '数据库超时功能架构更新完成（部分更新已存在）',
+          data: {
+            updatedColumns: ['tasks.status'],
+            addedStatuses: ['overtime']
+          }
+        });
+      } catch (enumError) {
+        console.error('状态枚举更新失败:', enumError);
+        res.status(500).json({
+          success: false,
+          message: '状态枚举更新失败: ' + enumError.message
+        });
+      }
+    } else {
+      console.error('数据库架构更新失败:', error);
+      res.status(500).json({
+        success: false,
+        message: '数据库架构更新失败: ' + error.message
+      });
+    }
   } finally {
     connection.release();
   }

@@ -170,11 +170,21 @@ class TaskService {
         throw new ForbiddenError('You are not assigned to this task');
       }
 
+      const startTime = new Date();
+      const overtimeAt = new Date(startTime.getTime() + (task.duration * 60 * 1000));
+      
       // 确保陪玩员状态为忙碌
       console.log(`[startTask] 更新陪玩员 ${playerId} 状态为 busy`);
       await userRepository.updateStatus(playerId, 'busy', connection);
-      await taskRepository.update(taskId, { status: 'in_progress', started_at: new Date() }, connection);
-      await taskRepository.log(taskId, playerId, 'start', null, connection);
+      await taskRepository.update(taskId, { 
+        status: 'in_progress', 
+        started_at: startTime, 
+        overtime_at: overtimeAt 
+      }, connection);
+      await taskRepository.log(taskId, playerId, 'start', { 
+        started_at: startTime, 
+        overtime_at: overtimeAt 
+      }, connection);
 
       await connection.commit();
 
@@ -189,26 +199,33 @@ class TaskService {
     }
   }
 
-  async completeTask(taskId, playerId) {
+  async completeTask(taskId, userId, userRole = 'player') {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
 
     try {
       const task = await taskRepository.findById(taskId, connection);
-      if (!task || task.status !== 'in_progress') {
+      if (!task || (task.status !== 'in_progress' && task.status !== 'overtime')) {
         throw new ValidationError('Task cannot be completed');
       }
-      if (task.player_id !== playerId) {
+      
+      // 如果是陪玩员，检查是否被分配到该任务
+      if (userRole === 'player' && task.player_id !== userId) {
         throw new ForbiddenError('You are not assigned to this task');
+      }
+      
+      // 如果是派单员，检查任务是否有分配的陪玩员
+      if (userRole === 'dispatcher' && !task.player_id) {
+        throw new ValidationError('Task must be assigned to a player before completion');
       }
 
       await taskRepository.update(taskId, { status: 'completed', completed_at: new Date() }, connection);
-      console.log(`[completeTask] 更新陪玩员 ${playerId} 状态为 idle`);
-      await userRepository.updateStatus(playerId, 'idle', connection);
-      await taskRepository.log(taskId, playerId, 'complete', null, connection);
+      console.log(`[completeTask] 更新陪玩员 ${task.player_id} 状态为 idle`);
+      await userRepository.updateStatus(task.player_id, 'idle', connection);
+      await taskRepository.log(taskId, userId, 'complete', { completedBy: userRole }, connection);
 
       // 自动激活下一个排队任务
-      const nextQueuedTask = await taskRepository.getNextQueuedTask(playerId, connection);
+      const nextQueuedTask = await taskRepository.getNextQueuedTask(task.player_id, connection);
       if (nextQueuedTask) {
         console.log(`[completeTask] 自动激活下一个排队任务 ${nextQueuedTask.id}`);
         await taskRepository.update(
@@ -221,7 +238,7 @@ class TaskService {
           }, 
           connection
         );
-        await taskRepository.log(nextQueuedTask.id, playerId, 'auto_accept_from_queue', { previousTaskId: taskId }, connection);
+        await taskRepository.log(nextQueuedTask.id, task.player_id, 'auto_accept_from_queue', { previousTaskId: taskId }, connection);
       }
 
       await connection.commit();
