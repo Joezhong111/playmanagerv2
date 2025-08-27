@@ -18,7 +18,7 @@ class SocketManager {
       return null;
     }
 
-    const serverUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3003';
+    const serverUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3000';
     
     this.socket = io(serverUrl, {
       auth: {

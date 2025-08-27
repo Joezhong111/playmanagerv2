@@ -18,12 +18,16 @@ import type {
   TimeTestResponse,
   TaskStats,
   UserStats,
-  StatsQuery
+  StatsQuery,
+  TimeExtensionRequest,
+  CreateExtensionRequest,
+  ReviewExtensionRequest,
+  ExtendTaskDurationRequest
 } from '@/types/api';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   timeout: 30000, // 增加到30秒
   headers: {
     'Content-Type': 'application/json',
@@ -53,13 +57,27 @@ api.interceptors.response.use(
     // 详细的错误日志
     console.error('API Error Details:', {
       url: error.config?.url,
+      fullUrl: error.config?.baseURL + error.config?.url,
       method: error.config?.method?.toUpperCase(),
       status: error.response?.status,
+      statusText: error.response?.statusText,
       message: error.message,
       code: error.code,
       timeout: error.code === 'ECONNABORTED',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      responseData: error.response?.data,
+      requestData: error.config?.data,
+      headers: error.config?.headers
     });
+
+    // 额外的错误上下文
+    if (error.response?.status) {
+      console.error(`HTTP ${error.response.status} Error:`, error.response.data);
+    } else if (error.request) {
+      console.error('No response received:', error.request);
+    } else {
+      console.error('Request setup error:', error.message);
+    }
 
     // Handle common errors
     if (error.code === 'ECONNABORTED') {
@@ -158,6 +176,17 @@ export const tasksApi = {
     const response = await api.put<ApiResponse<Task>>(`/tasks/${id}/cancel`);
     return handleResponse(response);
   },
+
+  // 时间延长相关API
+  async requestExtension(data: CreateExtensionRequest): Promise<TimeExtensionRequest> {
+    const response = await api.post<ApiResponse<TimeExtensionRequest>>(`/tasks/${data.task_id}/request-extension`, data);
+    return handleResponse(response);
+  },
+
+  async extendDuration(id: number, data: ExtendTaskDurationRequest): Promise<Task> {
+    const response = await api.put<ApiResponse<Task>>(`/tasks/${id}/extend-duration`, data);
+    return handleResponse(response);
+  },
 };
 
 // Users API
@@ -239,6 +268,26 @@ export const healthApi = {
   async check(): Promise<{ status: string; timestamp: string; database: string }> {
     const response = await api.get('/health');
     return response.data;
+  },
+};
+
+// 时间延长申请API
+export const extensionApi = {
+  async getExtensionRequests(taskId?: number): Promise<TimeExtensionRequest[]> {
+    const response = await api.get<ApiResponse<TimeExtensionRequest[]>>('/tasks/extension-requests', {
+      params: taskId ? { task_id: taskId } : {}
+    });
+    return handleResponse(response);
+  },
+
+  async reviewExtensionRequest(id: number, data: ReviewExtensionRequest): Promise<TimeExtensionRequest> {
+    const response = await api.put<ApiResponse<TimeExtensionRequest>>(`/tasks/extension-requests/${id}/review`, data);
+    return handleResponse(response);
+  },
+
+  async getMyExtensionRequests(): Promise<TimeExtensionRequest[]> {
+    const response = await api.get<ApiResponse<TimeExtensionRequest[]>>('/tasks/extension-requests/my');
+    return handleResponse(response);
   },
 };
 

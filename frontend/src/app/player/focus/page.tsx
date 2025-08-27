@@ -15,7 +15,12 @@ import {
   Gamepad2,
   Pause,
   Play,
-  CheckCircle
+  CheckCircle,
+  Plus,
+  Bell,
+  BellOff,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi } from '@/lib/api';
@@ -33,6 +38,12 @@ export default function FocusPage() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isOvertime, setIsOvertime] = useState(false);
+  
+  // 声音提醒相关状态
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [notificationsSent, setNotificationsSent] = useState<{[key: number]: boolean}>({});
+  const [showExtensionButtons, setShowExtensionButtons] = useState(false);
+  const [isExtensionRequesting, setIsExtensionRequesting] = useState(false);
 
   // Load task data
   useEffect(() => {
@@ -75,6 +86,47 @@ export default function FocusPage() {
     loadTask();
   }, [taskId, user?.id, router]);
 
+  // 播放提醒音效
+  const playNotificationSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const audio = new Audio('/notification-sound.wav');
+      audio.volume = 0.7;
+      audio.play().catch(error => {
+        console.warn('Failed to play notification sound:', error);
+        // 如果MP3加载失败，使用Web Audio API生成简单提示音
+        generateBeepSound();
+      });
+    } catch (error) {
+      console.warn('Error creating audio element:', error);
+      generateBeepSound();
+    }
+  };
+
+  // 备用的蜂鸣音生成器
+  const generateBeepSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.8);
+    } catch (error) {
+      console.warn('Failed to generate beep sound:', error);
+    }
+  };
+
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -86,6 +138,31 @@ export default function FocusPage() {
         
         // 检查是否超时（任务时长以分钟为单位）
         const taskDurationMs = (task?.duration || 0) * 60 * 1000;
+        const remainingMs = taskDurationMs - elapsed;
+        const remainingMinutes = Math.floor(remainingMs / (60 * 1000));
+        
+        // 声音提醒逻辑：剩余15分0秒和5分0秒时提醒（精确到秒）
+        if (remainingMs > 0) {
+          const remainingSeconds = Math.floor(remainingMs / 1000);
+          const exactMinutes = Math.floor(remainingSeconds / 60);
+          const exactSeconds = remainingSeconds % 60;
+          
+          // 15分0秒提醒（±2秒容差）
+          if (exactMinutes === 15 && exactSeconds <= 2 && !notificationsSent[15]) {
+            playNotificationSound();
+            toast.info('⏰ 剩余15分钟，可询问客户是否需要加钟', { duration: 5000 });
+            setShowExtensionButtons(true);
+            setNotificationsSent(prev => ({ ...prev, 15: true }));
+          }
+          // 5分0秒提醒（±2秒容差）
+          else if (exactMinutes === 5 && exactSeconds <= 2 && !notificationsSent[5]) {
+            playNotificationSound();
+            toast.info('⏰ 剩余5分钟，请询问客户是否需要加钟', { duration: 5000 });
+            setShowExtensionButtons(true);
+            setNotificationsSent(prev => ({ ...prev, 5: true }));
+          }
+        }
+        
         setIsOvertime(elapsed >= taskDurationMs);
       }, 1000);
     }
@@ -148,6 +225,53 @@ export default function FocusPage() {
       toast.error(error.response?.data?.message || '完成任务失败');
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const handleExtensionRequest = async (minutes: number) => {
+    if (!task || isExtensionRequesting) return;
+    
+    setIsExtensionRequesting(true);
+    try {
+      console.log('发送延长申请:', {
+        task_id: task.id,
+        requested_minutes: minutes,
+        reason: `陪玩员申请延长${minutes}分钟`
+      });
+
+      const result = await tasksApi.requestExtension({
+        task_id: task.id,
+        requested_minutes: minutes,
+        reason: `陪玩员申请延长${minutes}分钟`
+      });
+
+      console.log('延长申请成功:', result);
+      toast.success(`已申请延长${minutes}分钟，等待派单员审核`);
+      setShowExtensionButtons(false);
+    } catch (error: any) {
+      console.error('延长申请失败 - 详细错误:', {
+        error,
+        response: error.response,
+        request: error.request,
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      let errorMessage = '申请延长失败';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 500) {
+        errorMessage = '服务器内部错误，请检查后端日志';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'API接口未找到，请检查后端服务';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsExtensionRequesting(false);
     }
   };
 
@@ -249,9 +373,22 @@ export default function FocusPage() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             返回工作台
           </Button>
-          <Badge className={getStatusColor(task.status)} variant="secondary">
-            {getStatusText(task.status)}
-          </Badge>
+          
+          <div className="flex items-center space-x-2">
+            {/* 声音设置按钮 */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className="flex items-center"
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </Button>
+            
+            <Badge className={getStatusColor(task.status)} variant="secondary">
+              {getStatusText(task.status)}
+            </Badge>
+          </div>
         </div>
 
         {/* Main Focus Card */}
@@ -327,6 +464,67 @@ export default function FocusPage() {
                 </div>
               )}
             </div>
+
+            {/* 手动申请加钟按钮 */}
+            {!showExtensionButtons && task.status === 'in_progress' && (
+              <div className="mb-4 text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowExtensionButtons(true)}
+                  className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  申请延长时间
+                </Button>
+              </div>
+            )}
+
+            {/* 加钟申请按钮组 */}
+            {showExtensionButtons && task.status === 'in_progress' && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="text-center mb-3">
+                  <h4 className="font-semibold text-amber-800 mb-2 flex items-center justify-center">
+                    <Plus className="w-4 h-4 mr-2" />
+                    申请延长时间
+                  </h4>
+                  <p className="text-sm text-amber-700">可点击快速申请延长，需派单员审核</p>
+                </div>
+                <div className="flex justify-center space-x-3">
+                  <Button
+                    size="sm"
+                    onClick={() => handleExtensionRequest(15)}
+                    disabled={isExtensionRequesting}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    +15分钟
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleExtensionRequest(30)}
+                    disabled={isExtensionRequesting}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    +30分钟
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleExtensionRequest(60)}
+                    disabled={isExtensionRequesting}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    +1小时
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowExtensionButtons(false)}
+                    disabled={isExtensionRequesting}
+                  >
+                    取消
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex justify-center space-x-4">

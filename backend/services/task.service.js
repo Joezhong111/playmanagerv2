@@ -11,9 +11,12 @@ class TaskService {
 
     // 如果指定了陪玩员，验证是否存在且空闲
     if (player_id) {
-      const player = await userRepository.findByIdAndRole(player_id, 'player');
+      const player = await userRepository.findById(player_id);
       if (!player) {
-        throw new NotFoundError('Player');
+        throw new NotFoundError('Player not found');
+      }
+      if (player.role !== 'player') {
+        throw new ValidationError('User is not a player');
       }
       if (player.status !== 'idle') {
         throw new ValidationError('Player is not available');

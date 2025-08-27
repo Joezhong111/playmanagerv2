@@ -3,6 +3,7 @@ import express from 'express';
 import { body } from 'express-validator';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { taskController } from '../controllers/task.controller.js';
+import { extensionController } from '../controllers/extension.controller.js';
 
 const router = express.Router();
 
@@ -39,6 +40,10 @@ router.post('/', createTaskChain, taskController.createTask);
 
 router.get('/', authenticateToken, taskController.getTasks);
 
+// 时间延长相关路由 - 必须在 /:id 之前定义
+router.get('/extension-requests', authenticateToken, extensionController.getExtensionRequests);
+router.get('/extension-requests/my', authenticateToken, extensionController.getMyExtensionRequests);
+
 router.get('/:id', authenticateToken, taskController.getTaskById);
 
 router.put('/:id/accept', authenticateToken, requireRole('player'), taskController.acceptTask);
@@ -54,5 +59,32 @@ router.put('/:id/pause', authenticateToken, requireRole('player'), taskControlle
 router.put('/:id/resume', authenticateToken, requireRole('player'), taskController.resumeTask);
 
 router.put('/:id', updateTaskChain, taskController.updateTask);
+
+// 时间延长相关路由
+const extensionRequestChain = [
+  authenticateToken,
+  requireRole('player'),
+  body('requested_minutes').isInt({ min: 5, max: 480 }).withMessage('Requested minutes must be between 5 and 480 minutes'),
+  body('reason').optional().trim().isLength({ max: 500 }).escape()
+];
+
+const reviewExtensionChain = [
+  authenticateToken,
+  requireRole('dispatcher'),
+  body('status').isIn(['approved', 'rejected']).withMessage('Status must be approved or rejected'),
+  body('review_reason').optional().trim().isLength({ max: 500 }).escape()
+];
+
+const extendDurationChain = [
+  authenticateToken,
+  requireRole('dispatcher'),
+  body('additional_minutes').isInt({ min: 5, max: 480 }).withMessage('Additional minutes must be between 5 and 480 minutes'),
+  body('reason').optional().trim().isLength({ max: 500 }).escape()
+];
+
+// 其他时间延长API路由
+router.post('/:id/request-extension', extensionRequestChain, extensionController.requestExtension);
+router.put('/:id/extend-duration', extendDurationChain, extensionController.extendTaskDuration);
+router.put('/extension-requests/:id/review', reviewExtensionChain, extensionController.reviewExtensionRequest);
 
 export default router;

@@ -45,7 +45,8 @@ export interface Task {
   customer_contact: string;
   game_name: string;
   game_mode: string;
-  duration: number; // hours
+  duration: number; // minutes
+  original_duration?: number; // minutes - 原始时长
   price: number;
   requirements?: string;
   dispatcher_id: number;
@@ -141,4 +142,40 @@ export interface UserStats {
   players: number;
   idle: number;
   busy: number;
+}
+
+// 时间延长申请相关类型
+export interface TimeExtensionRequest {
+  id: number;
+  task_id: number;
+  player_id: number;
+  dispatcher_id: number;
+  requested_minutes: number;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: number | null;
+  reviewed_at?: string | null;
+  review_reason?: string;
+  created_at: string;
+  updated_at: string;
+  // 关联数据
+  task?: Task;
+  player_name?: string;
+  reviewer_name?: string;
+}
+
+export interface CreateExtensionRequest {
+  task_id: number;
+  requested_minutes: number;
+  reason?: string;
+}
+
+export interface ReviewExtensionRequest {
+  status: 'approved' | 'rejected';
+  review_reason?: string;
+}
+
+export interface ExtendTaskDurationRequest {
+  additional_minutes: number;
+  reason?: string;
 }

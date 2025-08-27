@@ -2,6 +2,7 @@
 import jwt from 'jsonwebtoken';
 import { userRepository } from '../repositories/user.repository.js';
 import { taskRepository } from '../repositories/task.repository.js';
+import { extensionRepository } from '../repositories/extension.repository.js';
 import { userService } from '../services/user.service.js';
 import logger from '../utils/logger.js';
 
@@ -78,6 +79,19 @@ function handleTaskEvents(socket, io) {
     }
   };
 
+  const broadcastExtensionEvent = async (requestId, eventName) => {
+    try {
+      const request = await extensionRepository.findById(requestId);
+      if (request) {
+        // 向派单员和相关陪玩员发送事件
+        io.to('dispatchers').to(`player_${request.player_id}`).emit(eventName, request);
+        logger.info(`Broadcasted [${eventName}] for extension request ${requestId}`);
+      }
+    } catch (error) {
+      logger.error(`Failed to broadcast event ${eventName} for extension request ${requestId}`, { error });
+    }
+  };
+
   socket.on('task_created', (data) => broadcastTaskStatusChange(data.taskId, 'new_task'));
   socket.on('task_accepted', (data) => broadcastTaskStatusChange(data.taskId));
   socket.on('task_started', (data) => broadcastTaskStatusChange(data.taskId));
@@ -86,6 +100,11 @@ function handleTaskEvents(socket, io) {
   socket.on('task_updated', (data) => broadcastTaskStatusChange(data.taskId));
   socket.on('task_paused', (data) => broadcastTaskStatusChange(data.taskId));
   socket.on('task_resumed', (data) => broadcastTaskStatusChange(data.taskId));
+  
+  // 时间延长相关事件
+  socket.on('extension_requested', (data) => broadcastExtensionEvent(data.requestId, 'extension_requested'));
+  socket.on('extension_reviewed', (data) => broadcastExtensionEvent(data.requestId, 'extension_reviewed'));
+  socket.on('duration_extended', (data) => broadcastTaskStatusChange(data.taskId, 'duration_extended'));
 
   socket.on('status_changed', (data) => {
     io.to('dispatchers').emit('player_status_changed', { userId: user.id, username: user.username, status: data.status });

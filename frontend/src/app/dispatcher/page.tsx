@@ -19,11 +19,15 @@ import {
   Filter,
   RefreshCw,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  Timer,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi, usersApi } from '@/lib/api';
 import type { Task, User } from '@/types/api';
+import ExtensionRequestsPanel from '@/components/dispatcher/ExtensionRequestsPanel';
+import ExtendTaskDurationDialog from '@/components/dispatcher/ExtendTaskDurationDialog';
 
 export default function DispatcherPage() {
   const { user, isLoading } = useAuth();
@@ -34,6 +38,8 @@ export default function DispatcherPage() {
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showExtensionRequests, setShowExtensionRequests] = useState(false);
+  const [extendingTask, setExtendingTask] = useState<Task | null>(null);
 
   // Check authentication and role
   useEffect(() => {
@@ -156,6 +162,14 @@ export default function DispatcherPage() {
             <p className="text-gray-600">管理和分配游戏陪玩任务</p>
           </div>
           <div className="flex space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowExtensionRequests(!showExtensionRequests)}
+              className={showExtensionRequests ? "bg-orange-50 text-orange-700 border-orange-200" : ""}
+            >
+              <AlertCircle className="w-4 h-4 mr-2" />
+              {showExtensionRequests ? '隐藏' : '查看'}延长申请
+            </Button>
             <Button
               variant="outline"
               onClick={() => {
@@ -308,13 +322,26 @@ export default function DispatcherPage() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => router.push(`/dispatcher/task/${task.id}`)}
-                              >
-                                详情
-                              </Button>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => router.push(`/dispatcher/task/${task.id}`)}
+                                >
+                                  详情
+                                </Button>
+                                {['accepted', 'in_progress', 'paused'].includes(task.status) && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setExtendingTask(task)}
+                                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                  >
+                                    <Timer className="w-3 h-3 mr-1" />
+                                    延长
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -368,6 +395,34 @@ export default function DispatcherPage() {
             </Card>
           </div>
         </div>
+
+        {/* 延长申请面板 */}
+        {showExtensionRequests && (
+          <ExtensionRequestsPanel 
+            onRequestsUpdate={() => {
+              loadTasks();
+            }}
+          />
+        )}
+
+        {/* 延长任务时长弹窗 */}
+        {extendingTask && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <ExtendTaskDurationDialog
+              task={extendingTask}
+              onSuccess={(updatedTask) => {
+                // 更新任务列表中的任务信息
+                setTasks(prev => 
+                  prev.map(task => 
+                    task.id === updatedTask.id ? updatedTask : task
+                  )
+                );
+                setExtendingTask(null);
+              }}
+              onClose={() => setExtendingTask(null)}
+            />
+          </div>
+        )}
       </div>
     </AppLayout>
   );
