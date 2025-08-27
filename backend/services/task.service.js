@@ -292,9 +292,9 @@ class TaskService {
         throw new ForbiddenError('You do not have permission to edit this task');
       }
 
-      // For simplicity, we only allow editing pending tasks. This could be expanded.
-      if (task.status !== 'pending') {
-        throw new ValidationError('Only pending tasks can be edited');
+      // Allow editing tasks that are not completed or cancelled
+      if (['completed', 'cancelled'].includes(task.status)) {
+        throw new ValidationError('Completed or cancelled tasks cannot be edited');
       }
 
       await taskRepository.update(taskId, updateData, connection);
@@ -347,6 +347,87 @@ class TaskService {
     await taskRepository.log(taskId, user.userId, 'resume', { oldStatus: task.status });
 
     return await taskRepository.findById(taskId);
+  }
+
+  async reassignTask(taskId, newPlayerId, dispatcherId) {
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      const task = await taskRepository.findById(taskId, connection);
+      if (!task) {
+        throw new NotFoundError('Task');
+      }
+
+      // 只有派单员可以重新指派任务
+      if (task.dispatcher_id !== dispatcherId) {
+        throw new ForbiddenError('You do not have permission to reassign this task');
+      }
+
+      // 只有排队状态的任务可以被重新指派
+      if (task.status !== 'queued') {
+        throw new ValidationError('Only queued tasks can be reassigned');
+      }
+
+      // 验证新陪玩员
+      const newPlayer = await userRepository.findById(newPlayerId, connection);
+      if (!newPlayer) {
+        throw new NotFoundError('New player not found');
+      }
+      if (newPlayer.role !== 'player') {
+        throw new ValidationError('User is not a player');
+      }
+
+      const oldPlayerId = task.player_id;
+
+      // 根据新陪玩员的状态决定任务状态
+      let newStatus, queueOrder = null, queuedAt = null;
+      
+      if (newPlayer.status === 'idle') {
+        newStatus = 'accepted';
+      } else if (newPlayer.status === 'busy') {
+        newStatus = 'queued';
+        // 获取该陪玩员当前的最大队列顺序
+        const [queueResult] = await connection.execute(
+          'SELECT MAX(queue_order) as max_order FROM tasks WHERE player_id = ? AND status = "queued"',
+          [newPlayerId]
+        );
+        queueOrder = (queueResult[0]?.max_order || 0) + 1;
+        queuedAt = new Date();
+      } else {
+        throw new ValidationError('New player has invalid status');
+      }
+
+      // 更新任务
+      const updateData = {
+        player_id: newPlayerId,
+        status: newStatus,
+        queue_order: queueOrder,
+        queued_at: queuedAt,
+        accepted_at: newStatus === 'accepted' ? new Date() : null
+      };
+
+      await taskRepository.update(taskId, updateData, connection);
+      
+      // 记录日志
+      await taskRepository.log(taskId, dispatcherId, 'reassign', { 
+        oldPlayerId, 
+        newPlayerId, 
+        oldStatus: task.status,
+        newStatus 
+      }, connection);
+
+      await connection.commit();
+
+      const updatedTask = await taskRepository.findById(taskId);
+      return updatedTask;
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 }
 

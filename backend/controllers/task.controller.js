@@ -234,6 +234,50 @@ class TaskController {
       data: queuedTasks
     });
   });
+
+  // 重新指派任务
+  reassignTask = asyncHandler(async (req, res, next) => {
+    const taskId = req.params.id;
+    const { player_id: newPlayerId } = req.body;
+    const dispatcherId = req.user.userId;
+
+    if (!newPlayerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'New player ID is required'
+      });
+    }
+
+    const updatedTask = await taskService.reassignTask(taskId, newPlayerId, dispatcherId);
+
+    // 广播任务重新指派事件
+    if (this.io) {
+      console.log(`[Controller] 广播任务重新指派事件: ${taskId} -> ${newPlayerId}`);
+      
+      // 通知原陪玩员（如果存在）
+      if (updatedTask.player_id && updatedTask.player_id !== newPlayerId) {
+        this.io.to(`player_${updatedTask.player_id}`).emit('task_reassigned', {
+          task: updatedTask,
+          message: '任务已被重新指派给其他陪玩员'
+        });
+      }
+
+      // 通知新陪玩员
+      this.io.to(`player_${newPlayerId}`).emit('task_assigned', {
+        task: updatedTask,
+        message: '您有新的任务分配'
+      });
+
+      // 通知所有派单员
+      this.io.to('dispatchers').emit('task_status_changed', updatedTask);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Task reassigned successfully',
+      data: updatedTask
+    });
+  });
 }
 
 export const taskController = new TaskController();

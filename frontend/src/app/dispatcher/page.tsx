@@ -8,20 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+// import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   Plus, 
   Users, 
   Clock, 
-  DollarSign,
   Search,
-  Filter,
   RefreshCw,
   UserCheck,
   AlertCircle,
   Timer,
-  Settings
+  Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi, usersApi } from '@/lib/api';
@@ -29,6 +27,7 @@ import { useSocket } from '@/lib/socket';
 import type { Task, User } from '@/types/api';
 import ExtensionRequestsPanel from '@/components/dispatcher/ExtensionRequestsPanel';
 import ExtendTaskDurationDialog from '@/components/dispatcher/ExtendTaskDurationDialog';
+import EditTaskDialog from '@/components/dispatcher/EditTaskDialog';
 
 export default function DispatcherPage() {
   const { user, isLoading } = useAuth();
@@ -42,6 +41,7 @@ export default function DispatcherPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showExtensionRequests, setShowExtensionRequests] = useState(false);
   const [extendingTask, setExtendingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Check authentication and role
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function DispatcherPage() {
       setIsLoadingTasks(true);
       const allTasks = await tasksApi.getAll();
       setTasks(allTasks);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading tasks:', error);
       toast.error('加载任务失败');
     } finally {
@@ -118,7 +118,7 @@ export default function DispatcherPage() {
       setIsLoadingPlayers(true);
       const allPlayers = await usersApi.getPlayers();
       setPlayers(allPlayers);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading players:', error);
       toast.error('加载陪玩员失败');
     } finally {
@@ -130,6 +130,7 @@ export default function DispatcherPage() {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800',
       accepted: 'bg-blue-100 text-blue-800',
+      queued: 'bg-purple-100 text-purple-800',
       in_progress: 'bg-purple-100 text-purple-800',
       paused: 'bg-orange-100 text-orange-800',
       completed: 'bg-green-100 text-green-800',
@@ -142,6 +143,7 @@ export default function DispatcherPage() {
     const texts = {
       pending: '待接受',
       accepted: '已接受',
+      queued: '排队中',
       in_progress: '进行中',
       paused: '已暂停',
       completed: '已完成',
@@ -299,6 +301,7 @@ export default function DispatcherPage() {
                       <option value="all">所有状态</option>
                       <option value="pending">待接受</option>
                       <option value="accepted">已接受</option>
+                      <option value="queued">排队中</option>
                       <option value="in_progress">进行中</option>
                       <option value="paused">已暂停</option>
                       <option value="completed">已完成</option>
@@ -369,9 +372,11 @@ export default function DispatcherPage() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => router.push(`/dispatcher/task/${task.id}`)}
+                                  onClick={() => setEditingTask(task)}
+                                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
                                 >
-                                  详情
+                                  <Edit className="w-3 h-3 mr-1" />
+                                  编辑
                                 </Button>
                                 {['accepted', 'in_progress', 'paused'].includes(task.status) && (
                                   <Button
@@ -382,6 +387,17 @@ export default function DispatcherPage() {
                                   >
                                     <Timer className="w-3 h-3 mr-1" />
                                     延长
+                                  </Button>
+                                )}
+                                {task.status === 'queued' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setEditingTask(task)}
+                                    className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                                  >
+                                    <Users className="w-3 h-3 mr-1" />
+                                    重新指派
                                   </Button>
                                 )}
                               </div>
@@ -465,6 +481,24 @@ export default function DispatcherPage() {
               onClose={() => setExtendingTask(null)}
             />
           </div>
+        )}
+
+        {/* 编辑任务弹窗 */}
+        {editingTask && (
+          <EditTaskDialog
+            task={editingTask}
+            players={players}
+            onSuccess={(updatedTask) => {
+              // 更新任务列表中的任务信息
+              setTasks(prev => 
+                prev.map(task => 
+                  task.id === updatedTask.id ? updatedTask : task
+                )
+              );
+              setEditingTask(null);
+            }}
+            onClose={() => setEditingTask(null)}
+          />
         )}
       </div>
     </AppLayout>

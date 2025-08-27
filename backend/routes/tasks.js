@@ -63,6 +63,9 @@ router.put('/:id/resume', authenticateToken, requireRole('player'), taskControll
 
 router.put('/:id', updateTaskChain, taskController.updateTask);
 
+// 任务重新指派路由
+router.put('/:id/reassign', authenticateToken, requireRole('dispatcher'), taskController.reassignTask);
+
 // 时间延长相关路由
 const extensionRequestChain = [
   authenticateToken,

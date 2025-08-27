@@ -194,6 +194,12 @@ export const tasksApi = {
     const response = await api.get<ApiResponse<Task[]>>('/tasks/queued', { params });
     return handleResponse(response);
   },
+
+  // 重新指派任务
+  async reassignTask(id: number, data: { player_id: number }): Promise<Task> {
+    const response = await api.put<ApiResponse<Task>>(`/tasks/${id}/reassign`, data);
+    return handleResponse(response);
+  },
 };
 
 // Users API
