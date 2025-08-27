@@ -62,3 +62,106 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Development and migration scripts
+*.sql
+migrate.js
+run_queue_migration.js
+execute-db-update.js
+update-database-schema.js
+update-schema.js
+
+# Development tools and utilities
+backend/migrate.js
+backend/run_queue_migration.js
+
+# Audio generation tools
+frontend/public/generate-notification-sound.html
+
+# Test and development data
+*.test.js
+*.spec.js
+test/
+tests/
+__tests__/
+
+# Build and deployment artifacts
+*.tar.gz
+*.zip
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime configuration (production should use environment variables)
+config/local.js
+config/development.js
+config/test.js
+
+# Backup files
+*.bak
+*.backup
+*.swp
+*.swo
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Development logs
+debug.log
+*.out
+
+# Package manager files (optional - already covered by node_modules)
+package-lock.json.backup
+yarn.lock.backup
+
+# Editor configuration files that shouldn't be committed
+.vscode/settings.json
+.idea/workspace.xml
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary upload directories
+uploads/
+uploads_tmp/
+
+# Session files
+*.session
+*.sess
+
+# Development database dumps
+*.dump
+*.sql.backup
+
+# Environment-specific configuration files
+.env.development
+.env.test
+.env.staging
+.env.production
+
+# Coverage reports
+coverage/
+.nyc_output/
+reports/
+
+# Documentation build artifacts
+docs/build/
+docs/_build/
+
+# Temporary development databases
+database.*
+db.*
+
+# Hot reload and development server files
+.hot-update.js
+.hot-update.json
