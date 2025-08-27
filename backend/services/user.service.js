@@ -1,6 +1,7 @@
 
+import bcrypt from 'bcrypt';
 import { userRepository } from '../repositories/user.repository.js';
-import { ValidationError } from '../utils/AppError.js';
+import { AppError, ValidationError } from '../utils/AppError.js';
 
 class UserService {
 
@@ -21,7 +22,47 @@ class UserService {
   }
 
   async getUserProfile(userId) {
-    return await userRepository.findById(userId);
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new AppError(404, 'NOT_FOUND', 'User not found');
+    }
+    return user;
+  }
+
+  // --- Admin Service Methods ---
+
+  async getAllUsers(queryParams) {
+    // In a real app, you'd have more complex filtering/pagination logic
+    return await userRepository.findAll(queryParams);
+  }
+
+  async getUserById(userId) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new AppError(404, 'NOT_FOUND', 'User not found');
+    }
+    return user;
+  }
+
+  async updateUser(userId, userData) {
+    const { password, ...otherData } = userData;
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      otherData.password = hashedPassword;
+    }
+    const result = await userRepository.update(userId, otherData);
+    if (result.affectedRows === 0) {
+        throw new AppError(404, 'NOT_FOUND', 'User not found or data is unchanged');
+    }
+    return await this.getUserById(userId); // Return the updated user data
+  }
+
+  async deleteUser(userId) {
+    const result = await userRepository.delete(userId);
+    if (result.affectedRows === 0) {
+        throw new AppError(404, 'NOT_FOUND', 'User not found');
+    }
+    return { message: 'User deleted successfully' };
   }
 }
 

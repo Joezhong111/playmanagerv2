@@ -191,4 +191,90 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// 重置数据库 - 清空所有数据并重新创建测试账户
+router.post('/reset', async (req, res) => {
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+
+    console.log('开始重置数据库...');
+
+    // 清空所有表数据
+    await connection.execute('DELETE FROM task_logs');
+    console.log('✅ 清空任务日志表');
+    
+    await connection.execute('DELETE FROM tasks');
+    console.log('✅ 清空任务表');
+    
+    await connection.execute('DELETE FROM users');
+    console.log('✅ 清空用户表');
+
+    // 重置自增ID
+    await connection.execute('ALTER TABLE users AUTO_INCREMENT = 1');
+    await connection.execute('ALTER TABLE tasks AUTO_INCREMENT = 1');
+    await connection.execute('ALTER TABLE task_logs AUTO_INCREMENT = 1');
+    console.log('✅ 重置自增ID');
+
+    // 插入新的测试用户
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    await connection.execute(`
+      INSERT INTO users (username, password, role, status) VALUES 
+      ('admin', ?, 'dispatcher', 'idle'),
+      ('dispatcher2', ?, 'dispatcher', 'idle'),
+      ('player1', ?, 'player', 'idle'),
+      ('player2', ?, 'player', 'idle'),
+      ('player3', ?, 'player', 'busy')
+    `, [hashedPassword, hashedPassword, hashedPassword, hashedPassword, hashedPassword]);
+    
+    console.log('✅ 创建新的测试用户');
+
+    // 插入测试任务
+    await connection.execute(`
+      INSERT INTO tasks (customer_name, customer_contact, game_name, game_mode, duration, price, requirements, dispatcher_id, status) VALUES
+      ('张三', '13800138000', '王者荣耀', '排位赛', 2, 120.00, '需要带到钻石段位', 1, 'pending'),
+      ('李四', '13900139000', '英雄联盟', '排位上分', 3, 180.00, '会打辅助位置', 1, 'pending'),
+      ('王五', '13700137000', '和平精英', '四排上分', 1, 60.00, '需要会开车', 2, 'accepted'),
+      ('赵六', '13600136000', '原神', '深渊挑战', 1, 80.00, '需要五星角色', 1, 'completed')
+    `);
+    
+    console.log('✅ 创建测试任务');
+
+    await connection.commit();
+    
+    // 获取统计信息
+    const [userCount] = await connection.execute('SELECT COUNT(*) as count FROM users');
+    const [taskCount] = await connection.execute('SELECT COUNT(*) as count FROM tasks');
+
+    console.log('🎉 数据库重置完成');
+
+    res.json({
+      success: true,
+      message: '数据库重置完成',
+      data: {
+        userCount: userCount[0].count,
+        taskCount: taskCount[0].count,
+        testAccounts: [
+          { username: 'admin', password: 'admin123', role: 'dispatcher', description: '主要派单员' },
+          { username: 'dispatcher2', password: 'admin123', role: 'dispatcher', description: '副派单员' },
+          { username: 'player1', password: 'admin123', role: 'player', description: '陪玩员1 (空闲)' },
+          { username: 'player2', password: 'admin123', role: 'player', description: '陪玩员2 (空闲)' },
+          { username: 'player3', password: 'admin123', role: 'player', description: '陪玩员3 (忙碌)' }
+        ]
+      }
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('数据库重置失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '数据库重置失败: ' + error.message
+    });
+  } finally {
+    connection.release();
+  }
+});
+
 export default router;

@@ -8,6 +8,91 @@
 - **认证**: 大多数接口需要通过 `Authorization` 请求头传递 `Bearer Token` 进行认证。
 - **Content-Type**: 所有 `POST` 和 `PUT` 请求的请求体都应使用 `application/json` 格式。
 
+## 标准响应格式
+
+所有成功响应都遵循以下格式：
+```json
+{
+  "success": true,
+  "message": "操作描述信息（可选）",
+  "data": { /* 响应数据 */ }
+}
+```
+
+所有错误响应都遵循以下格式：
+```json
+{
+  "success": false,
+  "message": "错误描述信息",
+  "code": "ERROR_CODE",
+  "timestamp": "2023-12-01T12:00:00.000Z"
+}
+```
+
+---
+
+## 系统设置 (Setup)
+
+系统初始化和配置相关接口，用于数据库初始化和状态检查。
+
+### 1. 初始化数据库
+
+- **路径**: `/setup/init`
+- **方法**: `POST`
+- **描述**: 初始化数据库表结构和测试数据，包括创建用户表、任务表、任务日志表，以及插入默认测试用户和任务。
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "数据库初始化完成",
+    "data": {
+      "userCount": 4,
+      "taskCount": 2
+    }
+  }
+  ```
+- **错误响应**:
+  - `500 Internal Server Error`: 数据库初始化失败。
+
+### 2. 检查系统状态
+
+- **路径**: `/setup/status`
+- **方法**: `GET`
+- **描述**: 检查数据库初始化状态和数据统计。
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "initialized": true,
+    "tables": ["users", "tasks", "task_logs"],
+    "data": {
+      "userCount": 4,
+      "taskCount": 2
+    }
+  }
+  ```
+
+### 3. 时间测试
+
+- **路径**: `/setup/time-test`
+- **方法**: `GET`
+- **描述**: 测试数据库和系统时间，用于时区配置验证。
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "database_now": "2023-12-01T12:00:00.000Z",
+      "javascript": {
+        "local_time": "2023-12-01T20:00:00.000Z",
+        "utc_time": "Fri, 01 Dec 2023 12:00:00 GMT",
+        "timestamp": 1701432000000,
+        "timezone_offset": -480
+      }
+    }
+  }
+  ```
+
 ---
 
 ## 认证 (Auth)
@@ -64,7 +149,7 @@
     "success": true,
     "message": "Registration successful",
     "data": {
-      "id": 2,
+      "userId": 2,
       "username": "newuser",
       "role": "player"
     }
@@ -118,7 +203,7 @@
     "customer_contact": "string",
     "game_name": "string",
     "game_mode": "string",
-    "duration": "integer", // 分钟
+    "duration": "integer", // 小时
     "price": "number",
     "requirements": "string", // 可选
     "player_id": "integer" // 可选, 直接指派给某个玩家
@@ -200,10 +285,18 @@
   ```json
   {
     "success": true,
-    "message": "Task action successful",
+    "message": "Task [action] successfully", // [action] 会被替换为具体操作，如 "accepted", "started", "completed" 等
     "data": { ...taskObject } // 返回更新后的任务对象
   }
   ```
+  
+  具体的成功消息示例：
+  - 接受任务: `"Task accepted successfully"`
+  - 开始任务: `"Task started successfully"`  
+  - 完成任务: `"Task completed successfully"`
+  - 暂停任务: `"Task paused successfully"`
+  - 恢复任务: `"Task resumed successfully"`
+  - 取消任务: `"Task cancelled successfully"`
 
 ---
 
@@ -247,7 +340,7 @@
 - **请求体**:
   ```json
   {
-    "status": "string" // 例如: "idle", "busy"
+    "status": "string" // 有效值: "idle", "busy"
   }
   ```
 - **成功响应 (200 OK)**:
@@ -271,6 +364,79 @@
   {
     "success": true,
     "data": { ...userObject }
+  }
+  ```
+
+### 管理员功能
+
+以下接口需要管理员权限（role为"admin"）：
+
+### 5. 获取所有用户
+
+- **路径**: `/users`
+- **方法**: `GET`
+- **角色**: `admin`
+- **描述**: 获取所有用户列表，支持按角色和状态筛选。
+- **查询参数 (可选)**:
+  - `role`: `dispatcher`, `player`, `admin`
+  - `status`: `idle`, `busy`
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [ { ...userObject }, ... ]
+  }
+  ```
+
+### 6. 获取指定用户
+
+- **路径**: `/users/:id`
+- **方法**: `GET`
+- **角色**: `admin`
+- **描述**: 根据ID获取指定用户信息。
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": { ...userObject }
+  }
+  ```
+
+### 7. 更新用户信息
+
+- **路径**: `/users/:id`
+- **方法**: `PUT`
+- **角色**: `admin`
+- **描述**: 更新指定用户的信息，包括密码重置。
+- **请求体** (所有字段可选):
+  ```json
+  {
+    "username": "string",
+    "password": "string",
+    "role": "string",
+    "status": "string"
+  }
+  ```
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "User updated successfully",
+    "data": { ...updatedUserObject }
+  }
+  ```
+
+### 8. 删除用户
+
+- **路径**: `/users/:id`
+- **方法**: `DELETE`
+- **角色**: `admin`
+- **描述**: 删除指定用户。
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "User deleted successfully"
   }
   ```
 
@@ -313,3 +479,68 @@
     "data": { ...userStatsObject }
   }
   ```
+
+---
+
+## 系统监控
+
+### 健康检查
+
+- **路径**: `/health`
+- **方法**: `GET`
+- **描述**: 检查服务器和数据库连接状态。
+- **成功响应 (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "timestamp": "2023-12-01T12:00:00.000Z",
+    "database": "connected"
+  }
+  ```
+
+---
+
+## 数据模型
+
+### 用户对象 (userObject)
+
+```json
+{
+  "id": 1,
+  "username": "testuser",
+  "role": "player", // "dispatcher", "player", "admin"
+  "status": "idle", // "idle", "busy"
+  "created_at": "2023-12-01T12:00:00.000Z",
+  "updated_at": "2023-12-01T12:00:00.000Z"
+}
+```
+
+### 任务对象 (taskObject)
+
+```json
+{
+  "id": 1,
+  "customer_name": "张三",
+  "customer_contact": "13800138000",
+  "game_name": "王者荣耀",
+  "game_mode": "排位赛",
+  "duration": 2, // 小时
+  "price": 120.00,
+  "requirements": "需要带到钻石段位",
+  "dispatcher_id": 1,
+  "player_id": null, // 可为null
+  "status": "pending", // "pending", "accepted", "in_progress", "completed", "cancelled"
+  "created_at": "2023-12-01T12:00:00.000Z",
+  "accepted_at": null, // 可为null
+  "started_at": null, // 可为null
+  "completed_at": null // 可为null
+}
+```
+
+### 错误代码说明
+
+- `VALIDATION_ERROR`: 输入验证失败
+- `NOT_FOUND`: 资源未找到
+- `UNAUTHORIZED`: 未授权访问
+- `FORBIDDEN`: 权限不足
+- `INTERNAL_ERROR`: 服务器内部错误

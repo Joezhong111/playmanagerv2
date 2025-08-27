@@ -36,6 +36,30 @@ class UserRepository {
     return rows;
   }
 
+  async findAll(queryParams, connection = pool) {
+    let query = 'SELECT id, username, role, status, created_at, updated_at FROM users';
+    const params = [];
+    const whereClauses = [];
+
+    if (queryParams.role) {
+      whereClauses.push('role = ?');
+      params.push(queryParams.role);
+    }
+    if (queryParams.status) {
+      whereClauses.push('status = ?');
+      params.push(queryParams.status);
+    }
+
+    if (whereClauses.length > 0) {
+      query += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const [rows] = await connection.execute(query, params);
+    return rows;
+  }
+
   async findAllPlayersWithTaskCount(connection = pool) {
     const [rows] = await connection.execute(`
       SELECT u.id, u.username, u.status, u.updated_at,
@@ -54,7 +78,23 @@ class UserRepository {
       'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [status, id]
     );
-    return result.affectedRows;
+    return result;
+  }
+
+  async update(id, userData, connection = pool) {
+    const fieldEntries = Object.entries(userData);
+    const query = `UPDATE users SET ${fieldEntries.map(([key]) => `${key} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    const params = [...fieldEntries.map(([, value]) => value), id];
+    const [result] = await connection.execute(query, params);
+    return result;
+  }
+
+  async delete(id, connection = pool) {
+    const [result] = await connection.execute(
+      'DELETE FROM users WHERE id = ?',
+      [id]
+    );
+    return result;
   }
 }
 

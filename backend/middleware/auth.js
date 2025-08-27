@@ -7,7 +7,10 @@ export function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: '缺少访问令牌' });
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Access token is missing' 
+    });
   }
 
   try {
@@ -15,7 +18,10 @@ export function authenticateToken(req, res, next) {
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({ error: '无效的访问令牌' });
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Invalid access token' 
+    });
   }
 }
 
@@ -23,10 +29,24 @@ export function authenticateToken(req, res, next) {
 export function requireRole(role) {
   return (req, res, next) => {
     if (req.user.role !== role) {
-      return res.status(403).json({ error: '权限不足' });
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Insufficient permissions' 
+      });
     }
     next();
   };
+}
+
+// 管理员角色验证中间件
+export function requireAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Admin permissions required' 
+    });
+  }
+  next();
 }
 
 // 用户存在性验证中间件
@@ -38,13 +58,19 @@ export async function validateUser(req, res, next) {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({ error: '用户不存在' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
     }
 
     req.currentUser = users[0];
     next();
   } catch (error) {
     console.error('用户验证错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error' 
+    });
   }
 }

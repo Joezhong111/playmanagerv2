@@ -2,7 +2,7 @@
 
 ## 📖 项目概述
 
-将现有的 Vanilla JS + HTML 前端重构为现代化的 React + TypeScript + Ant Design 应用，提升用户体验和开发效率。
+将现有的 Vanilla JS + HTML 前端重构为现代化的 Nextjs + TypeScript + Shadcn 应用，提升用户体验和开发效率。
 
 ## 🎯 重构目标
 
