@@ -24,7 +24,7 @@ import type {
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003/api',
-  timeout: 10000,
+  timeout: 30000, // 增加到30秒
   headers: {
     'Content-Type': 'application/json',
   },

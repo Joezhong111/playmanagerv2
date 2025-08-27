@@ -96,8 +96,12 @@ export default function PlayerPage() {
     setIsTaskActionLoading(true);
     try {
       await tasksApi.start(taskId);
+      // 保存任务开始时间到localStorage
+      const startTime = Date.now();
+      localStorage.setItem(`task_${taskId}_start_time`, startTime.toString());
       toast.success('任务已开始');
-      await loadTasks();
+      // 跳转到专注页面
+      router.push(`/player/focus?taskId=${taskId}`);
     } catch (error: any) {
       console.error('Error starting task:', error);
       toast.error(error.response?.data?.message || '开始任务失败');

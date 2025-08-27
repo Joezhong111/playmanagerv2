@@ -148,41 +148,67 @@ router.get('/time-test', async (req, res) => {
   }
 });
 
+// 简单缓存机制
+let statusCache = null;
+let cacheExpiry = 0;
+const CACHE_DURATION = 30000; // 30秒缓存
+
 // 检查数据库状态
 router.get('/status', async (req, res) => {
   try {
-    const [tables] = await pool.execute(`
-      SELECT TABLE_NAME 
-      FROM INFORMATION_SCHEMA.TABLES 
-      WHERE TABLE_SCHEMA = DATABASE()
-    `);
+    // 检查缓存
+    if (statusCache && Date.now() < cacheExpiry) {
+      return res.json(statusCache);
+    }
     
-    const tableNames = tables.map(t => t.TABLE_NAME);
-    const hasRequiredTables = ['users', 'tasks', 'task_logs'].every(table => 
-      tableNames.includes(table)
+    // 直接检查必需的表是否存在，而不是列出所有表
+    const requiredTables = ['users', 'tasks', 'task_logs'];
+    const tableChecks = [];
+    
+    for (const table of requiredTables) {
+      try {
+        await pool.execute(`SELECT 1 FROM ${table} LIMIT 1`);
+        tableChecks.push(table);
+      } catch (error) {
+        // 表不存在，跳过
+      }
+    }
+    
+    const hasRequiredTables = requiredTables.every(table => 
+      tableChecks.includes(table)
     );
 
+    let result;
     if (hasRequiredTables) {
-      const [userCount] = await pool.execute('SELECT COUNT(*) as count FROM users');
-      const [taskCount] = await pool.execute('SELECT COUNT(*) as count FROM tasks');
+      // 使用并行查询减少延迟
+      const [userCountResult, taskCountResult] = await Promise.all([
+        pool.execute('SELECT COUNT(*) as count FROM users'),
+        pool.execute('SELECT COUNT(*) as count FROM tasks')
+      ]);
       
-      res.json({
+      result = {
         success: true,
         initialized: true,
-        tables: tableNames,
+        tables: tableChecks,
         data: {
-          userCount: userCount[0].count,
-          taskCount: taskCount[0].count
+          userCount: userCountResult[0][0].count,
+          taskCount: taskCountResult[0][0].count
         }
-      });
+      };
     } else {
-      res.json({
+      result = {
         success: true,
         initialized: false,
-        tables: tableNames,
+        tables: tableChecks,
         message: '数据库未初始化，请调用 /api/setup/init'
-      });
+      };
     }
+    
+    // 更新缓存
+    statusCache = result;
+    cacheExpiry = Date.now() + CACHE_DURATION;
+    
+    res.json(result);
   } catch (error) {
     res.status(500).json({
       success: false,
