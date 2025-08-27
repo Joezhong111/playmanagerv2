@@ -32,6 +32,7 @@ export default function PlayerPage() {
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isTaskActionLoading, setIsTaskActionLoading] = useState(false);
 
   // Check authentication and role
   useEffect(() => {
@@ -74,57 +75,96 @@ export default function PlayerPage() {
   };
 
   const handleAcceptTask = async (taskId: number) => {
+    if (isTaskActionLoading) return;
+    
+    setIsTaskActionLoading(true);
     try {
       await tasksApi.accept(taskId);
       toast.success('任务接受成功');
-      loadTasks();
+      await loadTasks();
     } catch (error: any) {
       console.error('Error accepting task:', error);
       toast.error(error.response?.data?.message || '接受任务失败');
+    } finally {
+      setIsTaskActionLoading(false);
     }
   };
 
   const handleStartTask = async (taskId: number) => {
+    if (isTaskActionLoading) return;
+    
+    setIsTaskActionLoading(true);
     try {
       await tasksApi.start(taskId);
       toast.success('任务已开始');
-      loadTasks();
+      await loadTasks();
     } catch (error: any) {
       console.error('Error starting task:', error);
       toast.error(error.response?.data?.message || '开始任务失败');
+    } finally {
+      setIsTaskActionLoading(false);
     }
   };
 
   const handleCompleteTask = async (taskId: number) => {
+    if (isTaskActionLoading) return;
+    
+    setIsTaskActionLoading(true);
     try {
       await tasksApi.complete(taskId);
       toast.success('任务完成！');
-      loadTasks();
+      await loadTasks();
     } catch (error: any) {
       console.error('Error completing task:', error);
       toast.error(error.response?.data?.message || '完成任务失败');
+    } finally {
+      setIsTaskActionLoading(false);
     }
   };
 
   const handlePauseTask = async (taskId: number) => {
+    if (isTaskActionLoading) return;
+    
+    setIsTaskActionLoading(true);
     try {
+      // 先更新本地状态以提供即时反馈
+      if (currentTask && currentTask.id === taskId) {
+        setCurrentTask({ ...currentTask, status: 'paused' });
+      }
+      
       await tasksApi.pause(taskId);
       toast.success('任务已暂停');
-      loadTasks();
+      await loadTasks();
     } catch (error: any) {
       console.error('Error pausing task:', error);
       toast.error(error.response?.data?.message || '暂停任务失败');
+      // 如果失败，恢复原状态
+      await loadTasks();
+    } finally {
+      setIsTaskActionLoading(false);
     }
   };
 
   const handleResumeTask = async (taskId: number) => {
+    if (isTaskActionLoading) return;
+    
+    setIsTaskActionLoading(true);
     try {
+      // 先更新本地状态以提供即时反馈
+      if (currentTask && currentTask.id === taskId) {
+        setCurrentTask({ ...currentTask, status: 'in_progress' });
+      }
+      
       await tasksApi.resume(taskId);
       toast.success('任务已恢复');
-      loadTasks();
+      await loadTasks();
     } catch (error: any) {
       console.error('Error resuming task:', error);
       toast.error(error.response?.data?.message || '恢复任务失败');
+      // 如果失败，恢复原状态
+      await loadTasks();
+    } finally {
+      setIsTaskActionLoading(false);
     }
   };
 
@@ -318,27 +358,41 @@ export default function PlayerPage() {
                       <Button
                         variant="outline"
                         onClick={() => handlePauseTask(currentTask.id)}
+                        disabled={isTaskActionLoading}
                       >
-                        <Pause className="w-4 h-4 mr-1" />
-                        暂停
+                        {isTaskActionLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 mr-1"></div>
+                        ) : (
+                          <Pause className="w-4 h-4 mr-1" />
+                        )}
+                        {isTaskActionLoading ? '暂停中...' : '暂停'}
                       </Button>
                     ) : currentTask.status === 'paused' ? (
                       <Button
                         variant="outline"
                         onClick={() => handleResumeTask(currentTask.id)}
                         className="border-green-500 text-green-600 hover:bg-green-50"
+                        disabled={isTaskActionLoading}
                       >
-                        <Play className="w-4 h-4 mr-1" />
-                        继续
+                        {isTaskActionLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400 mr-1"></div>
+                        ) : (
+                          <Play className="w-4 h-4 mr-1" />
+                        )}
+                        {isTaskActionLoading ? '恢复中...' : '继续'}
                       </Button>
                     ) : null}
                     <Button
                       onClick={() => handleCompleteTask(currentTask.id)}
                       className="bg-green-600 hover:bg-green-700"
-                      disabled={currentTask.status === 'paused'}
+                      disabled={currentTask.status === 'paused' || isTaskActionLoading}
                     >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      完成任务
+                      {isTaskActionLoading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                      ) : (
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                      )}
+                      {isTaskActionLoading ? '完成中...' : '完成任务'}
                     </Button>
                   </div>
                 </div>
@@ -396,9 +450,9 @@ export default function PlayerPage() {
                         size="sm"
                         onClick={() => handleAcceptTask(task.id)}
                         className="w-full"
-                        disabled={user.status === 'busy' || currentTask !== null}
+                        disabled={user.status === 'busy' || currentTask !== null || isTaskActionLoading}
                       >
-                        接受任务
+                        {isTaskActionLoading ? '处理中...' : '接受任务'}
                       </Button>
                     </div>
                   ))}
@@ -453,9 +507,14 @@ export default function PlayerPage() {
                           size="sm"
                           onClick={() => handleStartTask(task.id)}
                           className="w-full bg-blue-600 hover:bg-blue-700"
+                          disabled={isTaskActionLoading}
                         >
-                          <Play className="w-4 h-4 mr-1" />
-                          开始任务
+                          {isTaskActionLoading ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                          ) : (
+                            <Play className="w-4 h-4 mr-1" />
+                          )}
+                          {isTaskActionLoading ? '开始中...' : '开始任务'}
                         </Button>
                       )}
                     </div>

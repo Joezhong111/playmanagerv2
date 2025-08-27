@@ -20,7 +20,7 @@ router.post('/init', async (req, res) => {
         username VARCHAR(50) UNIQUE NOT NULL COMMENT '用户名',
         password VARCHAR(255) NOT NULL COMMENT '密码哈希',
         role ENUM('dispatcher', 'player') NOT NULL COMMENT '用户角色',
-        status ENUM('idle', 'busy') DEFAULT 'idle' COMMENT '用户状态',
+        status ENUM('idle', 'busy', 'offline') DEFAULT 'idle' COMMENT '用户状态',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
       ) COMMENT '用户表'
@@ -207,6 +207,16 @@ router.post('/update-schema', async (req, res) => {
     `);
     
     console.log('✅ 任务表状态枚举更新成功');
+
+    // 修改用户表的状态枚举，添加 offline 状态
+    await connection.execute(`
+      ALTER TABLE users 
+      MODIFY COLUMN status ENUM('idle', 'busy', 'offline') 
+      DEFAULT 'idle' 
+      COMMENT '用户状态'
+    `);
+    
+    console.log('✅ 用户表状态枚举更新成功');
 
     res.json({
       success: true,
