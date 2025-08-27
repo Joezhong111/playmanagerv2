@@ -19,6 +19,11 @@ class UserController {
     res.status(200).json({ success: true, data: players });
   });
 
+  getPlayerDetails = asyncHandler(async (req, res, next) => {
+    const players = await userService.getAllPlayersWithDetails();
+    res.status(200).json({ success: true, data: players });
+  });
+
   updateUserStatus = asyncHandler(async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

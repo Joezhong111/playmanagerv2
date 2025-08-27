@@ -62,15 +62,85 @@ class UserRepository {
 
   async findAllPlayersWithTaskCount(connection = pool) {
     const [rows] = await connection.execute(`
-      SELECT u.id, u.username, u.status, u.updated_at,
-             COUNT(t.id) as active_tasks
+      SELECT 
+        u.id, 
+        u.username, 
+        u.status, 
+        u.updated_at,
+        
+        -- 活跃任务统计 (进行中、已接受、暂停)
+        COUNT(CASE WHEN t.status IN ('accepted', 'in_progress', 'paused') THEN t.id END) as active_tasks,
+        
+        -- 总任务统计 (所有非取消状态)
+        COUNT(CASE WHEN t.status != 'cancelled' THEN t.id END) as total_tasks,
+        
+        -- 排队任务统计
+        COUNT(CASE WHEN t.status = 'queued' THEN t.id END) as queued_tasks,
+        
+        -- 已完成任务统计
+        COUNT(CASE WHEN t.status = 'completed' THEN t.id END) as completed_tasks,
+        
+        -- 当前进行中的任务信息
+        MAX(CASE WHEN t.status = 'in_progress' THEN t.id END) as current_task_id,
+        MAX(CASE WHEN t.status = 'in_progress' THEN t.game_name END) as current_game_name,
+        MAX(CASE WHEN t.status = 'in_progress' THEN t.customer_name END) as current_customer_name,
+        MAX(CASE WHEN t.status = 'in_progress' THEN t.duration END) as current_duration,
+        MAX(CASE WHEN t.status = 'in_progress' THEN t.started_at END) as current_started_at
+        
       FROM users u
-      LEFT JOIN tasks t ON u.id = t.player_id AND t.status IN ('accepted', 'in_progress')
+      LEFT JOIN tasks t ON u.id = t.player_id
       WHERE u.role = 'player'
       GROUP BY u.id, u.username, u.status, u.updated_at
-      ORDER BY u.status ASC, u.updated_at DESC
+      ORDER BY 
+        CASE u.status 
+          WHEN 'busy' THEN 1 
+          WHEN 'idle' THEN 2 
+          WHEN 'offline' THEN 3 
+          ELSE 4 
+        END,
+        u.updated_at DESC
     `);
-    return rows;
+    
+    // 处理每个陪玩员的数据，计算任务进度
+    return rows.map(player => {
+      const currentTaskProgress = this.calculateTaskProgress(player);
+      return {
+        ...player,
+        current_task_progress: currentTaskProgress,
+        current_task_time_remaining: this.calculateTimeRemaining(player)
+      };
+    });
+  }
+
+  // 计算任务进度百分比
+  calculateTaskProgress(player) {
+    if (!player.current_started_at || !player.current_duration) {
+      return 0;
+    }
+    
+    const startTime = new Date(player.current_started_at).getTime();
+    const currentTime = new Date().getTime();
+    const durationMs = player.current_duration * 60 * 1000; // 转换为毫秒
+    const elapsedMs = currentTime - startTime;
+    
+    const progress = Math.min(Math.max((elapsedMs / durationMs) * 100, 0), 100);
+    return Math.round(progress);
+  }
+
+  // 计算任务剩余时间（分钟）
+  calculateTimeRemaining(player) {
+    if (!player.current_started_at || !player.current_duration) {
+      return 0;
+    }
+    
+    const startTime = new Date(player.current_started_at).getTime();
+    const currentTime = new Date().getTime();
+    const durationMs = player.current_duration * 60 * 1000; // 转换为毫秒
+    const elapsedMs = currentTime - startTime;
+    const remainingMs = durationMs - elapsedMs;
+    
+    const remainingMinutes = Math.max(Math.ceil(remainingMs / (60 * 1000)), 0);
+    return remainingMinutes;
   }
 
   async updateStatus(id, status, connection = pool) {

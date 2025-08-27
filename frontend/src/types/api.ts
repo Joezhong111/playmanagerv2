@@ -34,9 +34,24 @@ export interface User {
   id: number;
   username: string;
   role: 'dispatcher' | 'player' | 'admin';
-  status: 'idle' | 'busy';
+  status: 'idle' | 'busy' | 'offline';
   created_at?: string;
   updated_at?: string;
+}
+
+// 陪玩员详细信息接口
+export interface PlayerDetail extends User {
+  active_tasks: number;           // 活跃任务数量
+  total_tasks: number;           // 总任务数量
+  queued_tasks: number;          // 排队任务数量
+  completed_tasks: number;       // 已完成任务数量
+  current_task_id?: number;      // 当前任务ID
+  current_game_name?: string;    // 当前游戏名称
+  current_customer_name?: string;// 当前客户名称
+  current_duration?: number;     // 当前任务时长（分钟）
+  current_started_at?: string;   // 当前任务开始时间
+  current_task_progress?: number;// 当前任务进度（0-100）
+  current_task_time_remaining?: number; // 当前任务剩余时间（分钟）
 }
 
 export interface Task {

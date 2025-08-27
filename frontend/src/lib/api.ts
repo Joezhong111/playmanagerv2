@@ -7,6 +7,7 @@ import type {
   LoginResponse,
   RegisterRequest,
   User,
+  PlayerDetail,
   Task,
   CreateTaskRequest,
   UpdateTaskRequest,
@@ -32,6 +33,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  retry: 3, // 添加重试配置
+  retryDelay: 1000, // 重试间隔1秒
 });
 
 // Request interceptor to add auth token
@@ -48,12 +51,40 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling with retry logic
 api.interceptors.response.use(
   (response: AxiosResponse<ApiResponse<any>>) => {
     return response;
   },
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    
+    // 如果请求配置中有重试次数，并且还没有达到最大重试次数
+    if (!config.retryCount) {
+      config.retryCount = 0;
+    }
+    
+    const maxRetry = config.retry || 3;
+    const retryDelay = config.retryDelay || 1000;
+    
+    // 只在网络错误或5xx错误时重试
+    if (config.retryCount < maxRetry && (
+      error.code === 'ECONNABORTED' || 
+      error.code === 'ECONNRESET' || 
+      error.code === 'ETIMEDOUT' ||
+      !error.response ||
+      (error.response.status >= 500 && error.response.status < 600)
+    )) {
+      config.retryCount += 1;
+      
+      console.warn(`Retrying request (${config.retryCount}/${maxRetry}): ${config.method?.toUpperCase()} ${config.url}`);
+      
+      // 等待指定时间后重试
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      
+      return api(config);
+    }
+    
     // 详细的错误日志
     console.error('API Error Details:', {
       url: error.config?.url,
@@ -64,6 +95,7 @@ api.interceptors.response.use(
       message: error.message,
       code: error.code,
       timeout: error.code === 'ECONNABORTED',
+      retryCount: config.retryCount,
       timestamp: new Date().toISOString(),
       responseData: error.response?.data,
       requestData: error.config?.data,
@@ -206,6 +238,11 @@ export const tasksApi = {
 export const usersApi = {
   async getPlayers(): Promise<User[]> {
     const response = await api.get<ApiResponse<User[]>>('/users/players');
+    return handleResponse(response);
+  },
+
+  async getPlayerDetails(): Promise<PlayerDetail[]> {
+    const response = await api.get<ApiResponse<PlayerDetail[]>>('/users/players/details');
     return handleResponse(response);
   },
 

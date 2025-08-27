@@ -24,7 +24,7 @@ import {
 import { toast } from 'sonner';
 import { tasksApi, usersApi } from '@/lib/api';
 import { useSocket } from '@/lib/socket';
-import type { Task, User } from '@/types/api';
+import type { Task, User, PlayerDetail } from '@/types/api';
 import ExtensionRequestsPanel from '@/components/dispatcher/ExtensionRequestsPanel';
 import ExtendTaskDurationDialog from '@/components/dispatcher/ExtendTaskDurationDialog';
 import EditTaskDialog from '@/components/dispatcher/EditTaskDialog';
@@ -35,8 +35,10 @@ export default function DispatcherPage() {
   const socketManager = useSocket();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [players, setPlayers] = useState<User[]>([]);
+  const [playerDetails, setPlayerDetails] = useState<PlayerDetail[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
+  const [isLoadingPlayerDetails, setIsLoadingPlayerDetails] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showExtensionRequests, setShowExtensionRequests] = useState(false);
@@ -56,8 +58,31 @@ export default function DispatcherPage() {
     if (user?.role === 'dispatcher') {
       loadTasks();
       loadPlayers();
+      loadPlayerDetails();
     }
   }, [user]);
+
+  // 定时更新任务进度
+  useEffect(() => {
+    if (user?.role !== 'dispatcher') return;
+
+    const progressUpdateInterval = setInterval(async () => {
+      // 只在有进行中任务时才更新
+      const hasInProgressTasks = tasks.some(task => task.status === 'in_progress');
+      if (hasInProgressTasks) {
+        try {
+          await loadPlayerDetails(); // 更新陪玩员详细信息以刷新任务进度
+        } catch (error) {
+          console.error('Progress update failed:', error);
+          // 静默处理错误，避免干扰用户体验
+        }
+      }
+    }, 30000); // 每30秒更新一次
+
+    return () => {
+      clearInterval(progressUpdateInterval);
+    };
+  }, [user, tasks]);
 
   // Socket 事件监听
   useEffect(() => {
@@ -70,6 +95,13 @@ export default function DispatcherPage() {
           setTasks(prevTasks => 
             prevTasks.map(t => t.id === task.id ? task : t)
           );
+          
+          // 任务状态变更时，重新加载陪玩员详细信息以更新任务统计
+          try {
+            loadPlayerDetails();
+          } catch (error) {
+            console.error('Failed to load player details after task status change:', error);
+          }
         };
 
         // 监听陪玩员状态变更
@@ -80,21 +112,66 @@ export default function DispatcherPage() {
             console.log('[前端] 更新后的陪玩员列表:', updated);
             return updated;
           });
+          
+          // 同时更新陪玩员详细信息
+          setPlayerDetails(prevDetails => {
+            const updated = prevDetails.map(p => p.id === data.userId ? { ...p, status: data.status } : p);
+            return updated;
+          });
         };
 
         // 监听新任务
         const handleNewTask = (task: Task) => {
           setTasks(prevTasks => [task, ...prevTasks]);
+          
+          // 新任务创建时，重新加载陪玩员详细信息
+          try {
+            loadPlayerDetails();
+          } catch (error) {
+            console.error('Failed to load player details after new task:', error);
+          }
+        };
+
+        // 监听任务开始事件（用于启动进度更新）
+        const handleTaskStarted = (task: Task) => {
+          console.log('[前端] 任务开始事件:', task);
+          setTasks(prevTasks => 
+            prevTasks.map(t => t.id === task.id ? task : t)
+          );
+          // 立即更新陪玩员详细信息
+          try {
+            loadPlayerDetails();
+          } catch (error) {
+            console.error('Failed to load player details after task started:', error);
+          }
+        };
+
+        // 监听任务完成事件
+        const handleTaskCompleted = (task: Task) => {
+          console.log('[前端] 任务完成事件:', task);
+          setTasks(prevTasks => 
+            prevTasks.map(t => t.id === task.id ? task : t)
+          );
+          // 更新陪玩员统计信息
+          try {
+            loadPlayerDetails();
+          } catch (error) {
+            console.error('Failed to load player details after task completed:', error);
+          }
         };
 
         socket.on('task_status_changed', handleTaskStatusChange);
         socket.on('new_task', handleNewTask);
         socket.on('player_status_changed', handlePlayerStatusChange);
+        socket.on('task_started', handleTaskStarted);
+        socket.on('task_completed', handleTaskCompleted);
 
         return () => {
           socket.off('task_status_changed', handleTaskStatusChange);
           socket.off('new_task', handleNewTask);
           socket.off('player_status_changed', handlePlayerStatusChange);
+          socket.off('task_started', handleTaskStarted);
+          socket.off('task_completed', handleTaskCompleted);
         };
       }
     }
@@ -105,9 +182,16 @@ export default function DispatcherPage() {
       setIsLoadingTasks(true);
       const allTasks = await tasksApi.getAll();
       setTasks(allTasks);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading tasks:', error);
-      toast.error('加载任务失败');
+      // 如果是网络错误，显示更友好的错误信息
+      if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || !error.response) {
+        toast.error('网络连接问题，请检查网络连接');
+      } else {
+        toast.error('加载任务失败');
+      }
+      // 设置空数组避免界面崩溃
+      setTasks([]);
     } finally {
       setIsLoadingTasks(false);
     }
@@ -118,11 +202,38 @@ export default function DispatcherPage() {
       setIsLoadingPlayers(true);
       const allPlayers = await usersApi.getPlayers();
       setPlayers(allPlayers);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading players:', error);
-      toast.error('加载陪玩员失败');
+      // 如果是网络错误，显示更友好的错误信息
+      if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || !error.response) {
+        toast.error('网络连接问题，请检查网络连接');
+      } else {
+        toast.error('加载陪玩员失败');
+      }
+      // 设置空数组避免界面崩溃
+      setPlayers([]);
     } finally {
       setIsLoadingPlayers(false);
+    }
+  };
+
+  const loadPlayerDetails = async () => {
+    try {
+      setIsLoadingPlayerDetails(true);
+      const details = await usersApi.getPlayerDetails();
+      setPlayerDetails(details);
+    } catch (error: any) {
+      console.error('Error loading player details:', error);
+      // 如果是网络错误，显示更友好的错误信息
+      if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || !error.response) {
+        toast.error('网络连接问题，请检查网络连接');
+      } else {
+        toast.error('加载陪玩员详情失败');
+      }
+      // 设置空数组避免界面崩溃
+      setPlayerDetails([]);
+    } finally {
+      setIsLoadingPlayerDetails(false);
     }
   };
 
@@ -176,7 +287,7 @@ export default function DispatcherPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const idlePlayers = players.filter(player => player.status === 'idle');
+  const idlePlayers = playerDetails.filter(player => player.status === 'idle');
 
   const taskStats = {
     total: tasks.length,
@@ -220,10 +331,11 @@ export default function DispatcherPage() {
               onClick={() => {
                 loadTasks();
                 loadPlayers();
+                loadPlayerDetails();
               }}
-              disabled={isLoadingTasks || isLoadingPlayers}
+              disabled={isLoadingTasks || isLoadingPlayers || isLoadingPlayerDetails}
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingTasks || isLoadingPlayers) ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingTasks || isLoadingPlayers || isLoadingPlayerDetails) ? 'animate-spin' : ''}`} />
               刷新
             </Button>
             <Button 
@@ -418,36 +530,111 @@ export default function DispatcherPage() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Users className="w-5 h-5 mr-2" />
-                  空闲陪玩员 ({idlePlayers.length})
+                  陪玩员状态 ({playerDetails.length})
                 </CardTitle>
                 <CardDescription>
-                  当前可接任务的陪玩员
+                  所有陪玩员的工作状态和任务进度
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoadingPlayers ? (
+                {isLoadingPlayerDetails ? (
                   <div className="flex items-center justify-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                   </div>
-                ) : idlePlayers.length === 0 ? (
+                ) : playerDetails.length === 0 ? (
                   <div className="text-center py-4 text-gray-500 text-sm">
-                    暂无空闲陪玩员
+                    暂无陪玩员数据
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {idlePlayers.map((player) => (
-                      <div key={player.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border">
-                        <div>
-                          <div className="font-medium text-sm">{player.username}</div>
-                          <Badge className={getPlayerStatusColor(player.status)} variant="secondary">
-                            空闲
-                          </Badge>
+                  <div className="space-y-4">
+                    {/* 按状态分组显示陪玩员 */}
+                    {['busy', 'idle', 'offline'].map((status) => {
+                      const statusPlayers = playerDetails.filter(p => p.status === status);
+                      if (statusPlayers.length === 0) return null;
+
+                      const statusConfig = {
+                        busy: { label: '忙碌中', color: 'bg-orange-50 border-orange-200', badgeColor: 'bg-orange-100 text-orange-800' },
+                        idle: { label: '空闲', color: 'bg-green-50 border-green-200', badgeColor: 'bg-green-100 text-green-800' },
+                        offline: { label: '离线', color: 'bg-gray-50 border-gray-200', badgeColor: 'bg-gray-100 text-gray-800' }
+                      };
+
+                      const config = statusConfig[status as keyof typeof statusConfig];
+
+                      return (
+                        <div key={status}>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            {config.label} ({statusPlayers.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {statusPlayers.map((player) => (
+                              <div key={player.id} className={`p-3 rounded-lg border ${config.color}`}>
+                                {/* 用户基本信息 */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="font-medium text-sm">{player.username}</div>
+                                    <Badge className={config.badgeColor} variant="secondary">
+                                      {config.label}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {player.updated_at ? new Date(player.updated_at).toLocaleDateString('zh-CN') : ''}
+                                  </div>
+                                </div>
+
+                                {/* 任务统计 */}
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">活跃任务:</span>
+                                    <span className="font-medium">{player.active_tasks}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">总任务:</span>
+                                    <span className="font-medium">{player.total_tasks}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">排队:</span>
+                                    <span className="font-medium">{player.queued_tasks}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">完成:</span>
+                                    <span className="font-medium">{player.completed_tasks}</span>
+                                  </div>
+                                </div>
+
+                                {/* 当前任务进度 */}
+                                {player.current_task_id && player.status === 'busy' && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200">
+                                    <div className="text-xs text-gray-600 mb-1">
+                                      {player.current_game_name} - {player.current_customer_name}
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs mb-1">
+                                      <span>任务进度</span>
+                                      <span>{player.current_task_progress}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                      <div 
+                                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300" 
+                                        style={{ width: `${player.current_task_progress}%` }}
+                                      ></div>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      剩余时间: {player.current_task_time_remaining}分钟
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 排队任务提示 */}
+                                {player.queued_tasks > 0 && player.status === 'idle' && (
+                                  <div className="mt-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                                    📋 {player.queued_tasks}个任务在排队中
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {player.updated_at ? new Date(player.updated_at).toLocaleDateString('zh-CN') : ''}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

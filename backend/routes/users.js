@@ -19,6 +19,7 @@ router.use(authenticateToken);
 // Routes for players and general user info
 router.get('/players/idle', userController.getIdlePlayers);
 router.get('/players', userController.getAllPlayers);
+router.get('/players/details', userController.getPlayerDetails);
 router.put('/status', updateStatusValidation, validateUser, userController.updateUserStatus);
 router.get('/profile', validateUser, userController.getUserProfile);
 

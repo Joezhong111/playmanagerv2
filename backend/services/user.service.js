@@ -14,6 +14,10 @@ class UserService {
     return await userRepository.findAllPlayersWithTaskCount();
   }
 
+  async getAllPlayersWithDetails() {
+    return await userRepository.findAllPlayersWithTaskCount();
+  }
+
   async updateUserStatus(userId, status) {
     if (!['idle', 'busy', 'offline'].includes(status)) {
       throw new ValidationError('Invalid status value');
