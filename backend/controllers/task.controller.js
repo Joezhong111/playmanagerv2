@@ -9,6 +9,13 @@ const asyncHandler = fn => (req, res, next) => {
 };
 
 class TaskController {
+  constructor() {
+    this.io = null;
+  }
+
+  setSocketIO(io) {
+    this.io = io;
+  }
 
   createTask = asyncHandler(async (req, res, next) => {
     const errors = validationResult(req);
@@ -49,6 +56,12 @@ class TaskController {
     const playerId = req.user.userId;
     const updatedTask = await taskService.acceptTask(taskId, playerId);
 
+    // 广播任务接受事件（不广播陪玩员状态变更，因为状态没有改变）
+    if (this.io) {
+      console.log(`[Controller] 广播任务接受事件给所有客户端`);
+      this.io.to('dispatchers').to(`player_${updatedTask.player_id}`).emit('task_status_changed', updatedTask);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Task accepted successfully',
@@ -59,7 +72,27 @@ class TaskController {
   startTask = asyncHandler(async (req, res, next) => {
     const taskId = req.params.id;
     const playerId = req.user.userId;
+    console.log(`[Controller] 开始任务 ${taskId}，陪玩员 ${playerId}`);
     const updatedTask = await taskService.startTask(taskId, playerId);
+
+    // 直接广播任务状态变更事件给所有相关客户端
+    if (this.io) {
+      console.log(`[Controller] 广播任务开始事件给所有客户端`);
+      this.io.to('dispatchers').to(`player_${updatedTask.player_id}`).emit('task_status_changed', updatedTask);
+      
+      // 同时广播陪玩员状态变更
+      const { userRepository } = await import('../repositories/user.repository.js');
+      const player = await userRepository.findById(updatedTask.player_id);
+      if (player) {
+        // 同时发送给派单员和陪玩员本人
+        this.io.to('dispatchers').to(`player_${player.id}`).emit('player_status_changed', { 
+          userId: player.id, 
+          username: player.username, 
+          status: player.status 
+        });
+        console.log(`[Controller] 广播陪玩员 ${player.id} 状态变更: ${player.status} (发送给派单员和陪玩员本人)`);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -71,7 +104,27 @@ class TaskController {
   completeTask = asyncHandler(async (req, res, next) => {
     const taskId = req.params.id;
     const playerId = req.user.userId;
+    console.log(`[Controller] 完成任务 ${taskId}，陪玩员 ${playerId}`);
     const updatedTask = await taskService.completeTask(taskId, playerId);
+
+    // 直接广播任务状态变更事件给所有相关客户端
+    if (this.io) {
+      console.log(`[Controller] 广播任务完成事件给所有客户端`);
+      this.io.to('dispatchers').to(`player_${updatedTask.player_id}`).emit('task_status_changed', updatedTask);
+      
+      // 同时广播陪玩员状态变更
+      const { userRepository } = await import('../repositories/user.repository.js');
+      const player = await userRepository.findById(updatedTask.player_id);
+      if (player) {
+        // 同时发送给派单员和陪玩员本人
+        this.io.to('dispatchers').to(`player_${player.id}`).emit('player_status_changed', { 
+          userId: player.id, 
+          username: player.username, 
+          status: player.status 
+        });
+        console.log(`[Controller] 广播陪玩员 ${player.id} 状态变更: ${player.status} (发送给派单员和陪玩员本人)`);
+      }
+    }
 
     res.status(200).json({
       success: true,

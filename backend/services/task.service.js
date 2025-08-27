@@ -33,7 +33,7 @@ class TaskService {
       const taskId = await taskRepository.create(connection, fullTaskData);
 
       if (player_id) {
-        await userRepository.updateStatus(player_id, 'busy', connection);
+        // 接受任务时不改变状态，只记录接受时间
         await taskRepository.update(taskId, { accepted_at: new Date() }, connection);
       }
 
@@ -119,7 +119,7 @@ class TaskService {
       }
 
       await taskRepository.update(taskId, { status: 'accepted', player_id: playerId, accepted_at: new Date() }, connection);
-      await userRepository.updateStatus(playerId, 'busy', connection);
+      // 接受任务时不改变用户状态，只有开始任务时才变busy
       await taskRepository.log(taskId, playerId, 'accept', null, connection);
 
       await connection.commit();
@@ -148,6 +148,9 @@ class TaskService {
         throw new ForbiddenError('You are not assigned to this task');
       }
 
+      // 确保陪玩员状态为忙碌
+      console.log(`[startTask] 更新陪玩员 ${playerId} 状态为 busy`);
+      await userRepository.updateStatus(playerId, 'busy', connection);
       await taskRepository.update(taskId, { status: 'in_progress', started_at: new Date() }, connection);
       await taskRepository.log(taskId, playerId, 'start', null, connection);
 
@@ -178,6 +181,7 @@ class TaskService {
       }
 
       await taskRepository.update(taskId, { status: 'completed', completed_at: new Date() }, connection);
+      console.log(`[completeTask] 更新陪玩员 ${playerId} 状态为 idle`);
       await userRepository.updateStatus(playerId, 'idle', connection);
       await taskRepository.log(taskId, playerId, 'complete', null, connection);
 

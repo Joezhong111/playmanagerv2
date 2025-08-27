@@ -15,6 +15,7 @@ import userRoutes from './routes/users.js';
 import taskRoutes from './routes/tasks.js';
 import setupRoutes from './routes/setup.js';
 import statsRoutes from './routes/stats.js';
+import { taskController } from './controllers/task.controller.js';
 
 // Socket处理导入
 import { handleSocketConnection } from './sockets/taskSocket.js';
@@ -36,6 +37,9 @@ const corsOptions = {
 const io = new Server(server, {
   cors: corsOptions
 });
+
+// 将 io 实例传递给控制器
+taskController.setSocketIO(io);
 
 // 中间件配置
 app.use(cors(corsOptions));

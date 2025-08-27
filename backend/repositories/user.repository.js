@@ -74,10 +74,19 @@ class UserRepository {
   }
 
   async updateStatus(id, status, connection = pool) {
+    // 先查询当前状态
+    const [currentRows] = await connection.execute(
+      'SELECT status FROM users WHERE id = ?',
+      [id]
+    );
+    const currentStatus = currentRows[0]?.status || 'unknown';
+    
+    console.log(`[UserRepository] 更新用户 ${id} 状态从 ${currentStatus} 到 ${status}`);
     const [result] = await connection.execute(
       'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [status, id]
     );
+    console.log(`[UserRepository] 状态更新结果: 受影响行数 ${result.affectedRows}`);
     return result;
   }
 

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi, usersApi } from '@/lib/api';
+import { useSocket } from '@/lib/socket';
 import type { Task, User } from '@/types/api';
 import ExtensionRequestsPanel from '@/components/dispatcher/ExtensionRequestsPanel';
 import ExtendTaskDurationDialog from '@/components/dispatcher/ExtendTaskDurationDialog';
@@ -32,6 +33,7 @@ import ExtendTaskDurationDialog from '@/components/dispatcher/ExtendTaskDuration
 export default function DispatcherPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const socketManager = useSocket();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [players, setPlayers] = useState<User[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
@@ -56,6 +58,47 @@ export default function DispatcherPage() {
       loadPlayers();
     }
   }, [user]);
+
+  // Socket 事件监听
+  useEffect(() => {
+    if (user?.role === 'dispatcher') {
+      const socket = socketManager.connect();
+      console.log('[前端] Socket连接状态:', socket?.connected);
+      if (socket) {
+        // 监听任务状态变更
+        const handleTaskStatusChange = (task: Task) => {
+          setTasks(prevTasks => 
+            prevTasks.map(t => t.id === task.id ? task : t)
+          );
+        };
+
+        // 监听陪玩员状态变更
+        const handlePlayerStatusChange = (data: { userId: number; username: string; status: string }) => {
+          console.log('[前端] 收到陪玩员状态变更事件:', data);
+          setPlayers(prevPlayers => {
+            const updated = prevPlayers.map(p => p.id === data.userId ? { ...p, status: data.status } : p);
+            console.log('[前端] 更新后的陪玩员列表:', updated);
+            return updated;
+          });
+        };
+
+        // 监听新任务
+        const handleNewTask = (task: Task) => {
+          setTasks(prevTasks => [task, ...prevTasks]);
+        };
+
+        socket.on('task_status_changed', handleTaskStatusChange);
+        socket.on('new_task', handleNewTask);
+        socket.on('player_status_changed', handlePlayerStatusChange);
+
+        return () => {
+          socket.off('task_status_changed', handleTaskStatusChange);
+          socket.off('new_task', handleNewTask);
+          socket.off('player_status_changed', handlePlayerStatusChange);
+        };
+      }
+    }
+  }, [user, socketManager]);
 
   const loadTasks = async () => {
     try {

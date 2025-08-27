@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
 import { authApi } from '@/lib/api';
+import { useSocket } from '@/lib/socket';
 import type { User, LoginRequest } from '@/types/api';
 
 interface AuthContextType {
@@ -31,6 +32,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const socketManager = useSocket();
 
   const isAuthenticated = !!user;
 
@@ -38,6 +40,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     initializeAuth();
   }, []);
+
+  // Listen for user status changes via Socket
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      const socket = socketManager.connect();
+      if (socket) {
+        const handleUserStatusChange = (data: { userId: number; username: string; status: string }) => {
+          console.log('[AuthContext] 收到用户状态变更事件:', data);
+          // 只更新当前用户的状态
+          if (user.id === data.userId) {
+            console.log(`[AuthContext] 更新当前用户状态从 ${user.status} 到 ${data.status}`);
+            const updatedUser = { ...user, status: data.status };
+            setUser(updatedUser);
+            // 同步更新 Cookie
+            Cookies.set('user', JSON.stringify(updatedUser), { 
+              expires: 1,
+              sameSite: 'strict',
+              secure: process.env.NODE_ENV === 'production'
+            });
+          }
+        };
+
+        socket.on('player_status_changed', handleUserStatusChange);
+
+        return () => {
+          socket.off('player_status_changed', handleUserStatusChange);
+        };
+      }
+    }
+  }, [user, isAuthenticated, socketManager]);
 
   const initializeAuth = async () => {
     try {
