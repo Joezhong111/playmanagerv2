@@ -290,7 +290,7 @@ export default function DispatcherPage() {
                             </TableCell>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{task.duration}小时</div>
+                                <div className="font-medium">{Math.floor(task.duration / 60) > 0 ? `${Math.floor(task.duration / 60)}小时` : ''}{task.duration % 60 > 0 ? `${task.duration % 60}分钟` : ''}</div>
                                 <div className="text-sm text-green-600">¥{task.price}</div>
                               </div>
                             </TableCell>

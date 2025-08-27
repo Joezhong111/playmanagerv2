@@ -26,7 +26,7 @@ export default function CreateTaskPage() {
     customer_contact: '',
     game_name: '',
     game_mode: '',
-    duration: 1,
+    duration: 60,
     price: 0,
     requirements: '',
     player_id: undefined,
@@ -87,8 +87,8 @@ export default function CreateTaskPage() {
       toast.error('请输入游戏模式');
       return;
     }
-    if (formData.duration < 0.5) {
-      toast.error('任务时长至少为0.5小时');
+    if (formData.duration < 30) {
+      toast.error('任务时长至少为30分钟');
       return;
     }
     if (formData.price <= 0) {
@@ -237,15 +237,15 @@ export default function CreateTaskPage() {
                     <h3 className="text-lg font-medium">任务详情</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="duration">预计时长 (小时) *</Label>
+                        <Label htmlFor="duration">预计时长 (分钟) *</Label>
                         <Input
                           id="duration"
                           type="number"
-                          min="0.5"
-                          step="0.5"
+                          min="30"
+                          step="15"
                           value={formData.duration}
-                          onChange={(e) => handleInputChange('duration', parseFloat(e.target.value) || 0)}
-                          placeholder="1.0"
+                          onChange={(e) => handleInputChange('duration', parseInt(e.target.value) || 0)}
+                          placeholder="60"
                           required
                         />
                       </div>
@@ -372,7 +372,7 @@ export default function CreateTaskPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <Clock className="w-4 h-4 mr-1 text-gray-400" />
-                      <span className="text-sm">{formData.duration}小时</span>
+                      <span className="text-sm">{Math.floor(formData.duration / 60) > 0 ? `${Math.floor(formData.duration / 60)}小时` : ''}{formData.duration % 60 > 0 ? `${formData.duration % 60}分钟` : ''}</span>
                     </div>
                     <div className="flex items-center">
                       <DollarSign className="w-4 h-4 mr-1 text-gray-400" />

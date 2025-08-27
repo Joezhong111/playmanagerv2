@@ -220,13 +220,30 @@ export default function PlayerPage() {
       .reduce((sum, task) => sum + task.price, 0);
   };
 
-  const formatDuration = (hours: number) => {
-    if (hours >= 24) {
-      const days = Math.floor(hours / 24);
-      const remainingHours = hours % 24;
-      return remainingHours > 0 ? `${days}天${remainingHours}小时` : `${days}天`;
+  const formatDuration = (minutes: number) => {
+    if (minutes >= 1440) {
+      const days = Math.floor(minutes / 1440);
+      const remainingMinutes = minutes % 1440;
+      const hours = Math.floor(remainingMinutes / 60);
+      const mins = remainingMinutes % 60;
+      if (hours > 0 && mins > 0) {
+        return `${days}天${hours}小时${mins}分钟`;
+      } else if (hours > 0) {
+        return `${days}天${hours}小时`;
+      } else if (mins > 0) {
+        return `${days}天${mins}分钟`;
+      } else {
+        return `${days}天`;
+      }
     }
-    return `${hours}小时`;
+    
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`;
+    }
+    
+    return `${minutes}分钟`;
   };
 
   if (isLoading) {

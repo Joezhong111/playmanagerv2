@@ -32,6 +32,7 @@ export default function FocusPage() {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [isOvertime, setIsOvertime] = useState(false);
 
   // Load task data
   useEffect(() => {
@@ -80,14 +81,19 @@ export default function FocusPage() {
     
     if (startTime && task?.status === 'in_progress') {
       interval = setInterval(() => {
-        setTimeElapsed(Date.now() - startTime);
+        const elapsed = Date.now() - startTime;
+        setTimeElapsed(elapsed);
+        
+        // 检查是否超时（任务时长以分钟为单位）
+        const taskDurationMs = (task?.duration || 0) * 60 * 1000;
+        setIsOvertime(elapsed >= taskDurationMs);
       }, 1000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [startTime, task?.status]);
+  }, [startTime, task?.status, task?.duration]);
 
   const handlePauseTask = async () => {
     if (!task || isActionLoading) return;
@@ -146,7 +152,7 @@ export default function FocusPage() {
   };
 
   const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
+    const totalSeconds = Math.floor(Math.abs(milliseconds) / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -154,13 +160,44 @@ export default function FocusPage() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const formatDuration = (hours: number) => {
-    if (hours >= 24) {
-      const days = Math.floor(hours / 24);
-      const remainingHours = hours % 24;
-      return remainingHours > 0 ? `${days}天${remainingHours}小时` : `${days}天`;
+  const getDisplayTime = () => {
+    if (!task || !startTime) return '00:00:00';
+    
+    const taskDurationMs = task.duration * 60 * 1000; // 任务时长毫秒
+    
+    if (isOvertime) {
+      // 超时后显示正计时（超时时间）
+      return formatTime(timeElapsed - taskDurationMs);
+    } else {
+      // 未超时显示倒计时（剩余时间）
+      return formatTime(taskDurationMs - timeElapsed);
     }
-    return `${hours}小时`;
+  };
+
+  const formatDuration = (minutes: number) => {
+    if (minutes >= 1440) {
+      const days = Math.floor(minutes / 1440);
+      const remainingMinutes = minutes % 1440;
+      const hours = Math.floor(remainingMinutes / 60);
+      const mins = remainingMinutes % 60;
+      if (hours > 0 && mins > 0) {
+        return `${days}天${hours}小时${mins}分钟`;
+      } else if (hours > 0) {
+        return `${days}天${hours}小时`;
+      } else if (mins > 0) {
+        return `${days}天${mins}分钟`;
+      } else {
+        return `${days}天`;
+      }
+    }
+    
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`;
+    }
+    
+    return `${minutes}分钟`;
   };
 
   const getStatusColor = (status: Task['status']) => {
@@ -228,12 +265,22 @@ export default function FocusPage() {
           <CardContent>
             {/* Timer Display */}
             <div className="text-center mb-8">
-              <div className="text-6xl font-mono font-bold text-indigo-600 mb-4">
-                {formatTime(timeElapsed)}
+              <div className={`text-6xl font-mono font-bold mb-4 ${isOvertime ? 'text-red-600' : 'text-indigo-600'}`}>
+                {getDisplayTime()}
               </div>
-              <p className="text-gray-600">
-                {task.status === 'in_progress' ? '任务进行中...' : '任务已暂停'}
-              </p>
+              <div className="flex items-center justify-center space-x-2">
+                <p className="text-gray-600">
+                  {task.status === 'in_progress' 
+                    ? (isOvertime ? '任务超时中...' : '任务进行中...') 
+                    : '任务已暂停'
+                  }
+                </p>
+                {isOvertime && task.status === 'in_progress' && (
+                  <span className="px-2 py-1 text-xs bg-red-100 text-red-600 rounded-full">
+                    已超时
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Task Info */}
