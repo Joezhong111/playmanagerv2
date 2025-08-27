@@ -375,6 +375,18 @@ export default function PlayerPage() {
                     </Badge>
                   </div>
                   <div className="flex justify-center space-x-2">
+                    {/* 进入专注页面按钮 - 只在任务进行中或暂停时显示 */}
+                    {(currentTask.status === 'in_progress' || currentTask.status === 'paused') && (
+                      <Button
+                        variant="outline"
+                        onClick={() => router.push(`/player/focus?taskId=${currentTask.id}`)}
+                        className="border-indigo-500 text-indigo-600 hover:bg-indigo-50"
+                      >
+                        <Timer className="w-4 h-4 mr-1" />
+                        专注模式
+                      </Button>
+                    )}
+                    
                     {currentTask.status === 'in_progress' ? (
                       <Button
                         variant="outline"

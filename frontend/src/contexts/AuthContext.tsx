@@ -45,16 +45,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const savedUser = Cookies.get('user');
 
       if (token && savedUser) {
-        // Parse saved user data
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-
-        // Verify token is still valid
         try {
-          await authApi.verify();
+          // Parse saved user data
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+
+          // Verify token is still valid with timeout protection
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Token verification timeout')), 10000); // 10秒超时
+          });
+          
+          await Promise.race([
+            authApi.verify(),
+            timeoutPromise
+          ]);
+          
+          console.log('Token verification successful');
         } catch (error) {
-          // Token is invalid, clear auth data
+          // Token is invalid or verification failed, clear auth data
           console.error('Token verification failed:', error);
+          if (error.message === 'Token verification timeout') {
+            console.warn('Auth verification timed out, clearing auth state');
+          }
           clearAuth();
         }
       }

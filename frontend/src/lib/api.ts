@@ -50,13 +50,30 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // 详细的错误日志
+    console.error('API Error Details:', {
+      url: error.config?.url,
+      method: error.config?.method?.toUpperCase(),
+      status: error.response?.status,
+      message: error.message,
+      code: error.code,
+      timeout: error.code === 'ECONNABORTED',
+      timestamp: new Date().toISOString()
+    });
+
     // Handle common errors
+    if (error.code === 'ECONNABORTED') {
+      console.warn(`Request timeout: ${error.config?.url} exceeded ${api.defaults.timeout}ms`);
+    }
+    
     if (error.response?.status === 401) {
       // Token expired or invalid
+      console.log('Unauthorized access, clearing auth data');
       Cookies.remove('token');
       Cookies.remove('user');
       window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );
@@ -82,7 +99,10 @@ export const authApi = {
   },
 
   async verify(): Promise<{ user: User }> {
-    const response = await api.get<ApiResponse<{ user: User }>>('/auth/verify');
+    // 使用较短的超时时间用于认证验证
+    const response = await api.get<ApiResponse<{ user: User }>>('/auth/verify', {
+      timeout: 10000 // 10秒超时
+    });
     return handleResponse(response);
   },
 };
