@@ -145,6 +145,74 @@ npm run dev
 - 后端API: http://localhost:3000
 - API文档: http://localhost:3000/api-docs (如果配置了)
 
+### 5. 脚本管理和验证
+
+PlayManagerV2 提供了统一的脚本管理系统，用于系统初始化、测试和调试。
+
+#### 快速系统验证
+```bash
+# 运行快速测试套件验证系统状态
+node scripts/script-manager.js quick
+
+# 查看所有可用脚本
+node scripts/script-manager.js help
+```
+
+#### 数据库初始化和验证
+```bash
+# 初始化数据库（包含超级管理员账户）
+node scripts/script-manager.js database init
+
+# 验证数据库完整性
+node scripts/script-manager.js database validate
+
+# 修复时区问题
+mysql -h $DB_HOST -u $DB_USERNAME -p$DB_PASSWORD $DB_DATABASE < scripts/fix-timezone.sql
+```
+
+#### 超级管理员管理
+```bash
+# 激活超级管理员账户
+node scripts/script-manager.js user activate-super-admin
+
+# 重置超级管理员密码
+node scripts/script-manager.js user reset-superadmin
+
+# 完整的超级管理员管理工具
+node scripts/utils/super-admin-manager.js
+```
+
+#### API和功能测试
+```bash
+# 测试后端API接口
+node scripts/script-manager.js api test-backend
+
+# 检查玩家任务数据显示
+node scripts/script-manager.js api check-player-tasks
+
+# 运行完整系统测试
+node scripts/script-manager.js full
+```
+
+#### 开发时常用脚本
+```bash
+# 日常开发流程
+## 1. 启动服务
+cd backend && npm run dev
+cd frontend && npm run dev
+
+## 2. 验证系统状态
+node scripts/script-manager.js quick
+
+## 3. 开发新功能...
+
+## 4. 测试新功能
+node scripts/script-manager.js api test-backend
+
+## 5. 验证数据库
+node scripts/script-manager.js database validate
+```
+
 ## 📝 开发工作流程
 
 ### Git工作流
@@ -548,6 +616,64 @@ rm -rf node_modules package-lock.json
 
 # 重新安装依赖
 npm install
+```
+
+#### 4. 脚本执行问题
+```bash
+# 脚本权限问题（Linux/macOS）
+chmod +x scripts/script-manager.js
+
+# Node.js版本不兼容
+node --version  # 确保使用18.x或更高版本
+
+# 配置文件问题
+# 检查scripts/config/config.js中的配置是否正确
+# 特别是API_BASE_URL和数据库配置
+
+# 使用脚本管理器诊断
+node scripts/script-manager.js help
+```
+
+### 系统诊断和验证
+
+#### 使用脚本进行系统诊断
+```bash
+# 完整系统诊断
+node scripts/script-manager.js full
+
+# 数据库问题诊断
+node scripts/script-manager.js database validate
+
+# API连接问题诊断
+node scripts/script-manager.js api test-backend
+
+# 玩家任务显示问题诊断
+node scripts/script-manager.js api check-player-tasks
+```
+
+#### 超级管理员相关问题
+```bash
+# 超级管理员登录失败
+node scripts/script-manager.js user reset-superadmin
+
+# 超级管理员账户不存在
+node scripts/script-manager.js user activate-super-admin
+
+# Socket.IO连接被拒绝
+# 检查后端日志，确认超级管理员账户存在
+```
+
+#### 实时功能问题
+```bash
+# Socket.IO连接问题
+## 1. 检查后端服务是否运行
+cd backend && npm run dev
+
+## 2. 检查CORS配置
+## 确认frontend/src/lib/socket.ts中的URL配置正确
+
+## 3. 检查认证状态
+## 确认用户已登录，JWT token有效
 ```
 
 ### 代码问题

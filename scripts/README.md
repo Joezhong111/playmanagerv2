@@ -28,6 +28,7 @@ scripts/
 │   └── update-schema.js            # 更新架构工具
 └── utils/          # 实用工具脚本
     ├── activate-super-admin.js      # 激活超级管理员账户
+    ├── check-status-consistency.js  # 状态一致性检查工具
     └── reset-user-status.js        # 重置用户状态工具
 ```
 
@@ -115,6 +116,15 @@ node scripts/utils/activate-super-admin.js
 ```
 - 激活或重置超级管理员账户
 - 设置系统管理员权限
+
+#### 状态一致性检查
+```bash
+node scripts/utils/check-status-consistency.js
+```
+- 检查陪玩员状态与实际任务状态的一致性
+- 自动修复状态不一致问题
+- 生成状态报告
+- 使用 `--report` 参数只生成报告不修复
 
 ## ⚠️ 注意事项
 

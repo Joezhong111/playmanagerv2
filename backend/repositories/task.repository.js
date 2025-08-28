@@ -78,7 +78,7 @@ class TaskRepository {
     return result.affectedRows > 0;
   }
 
-  // 查找陪玩员的活跃任务（进行中、已暂停、超时）
+  // 查找陪玩员的活跃任务（进行中、已暂停、超时、排队中）
   async findActiveTaskByPlayer(playerId, connection = pool) {
     const [rows] = await connection.execute(`
       SELECT t.*, 
@@ -87,7 +87,7 @@ class TaskRepository {
       FROM tasks t
       LEFT JOIN users d ON t.dispatcher_id = d.id
       LEFT JOIN users p ON t.player_id = p.id
-      WHERE t.player_id = ? AND t.status IN ('in_progress', 'paused', 'overtime')
+      WHERE t.player_id = ? AND t.status IN ('in_progress', 'paused', 'overtime', 'queued')
       LIMIT 1
     `, [playerId]);
     return rows[0];

@@ -51,41 +51,24 @@ export function handleSocketConnection(socket, io) {
 
     socket.emit('connected', { message: 'Connection successful', user: user });
 
-    // 获取用户最新状态并验证
+    // 获取用户最新状态（简化验证，避免与登录逻辑冲突）
     const currentUser = await userRepository.findById(user.id);
     if (currentUser) {
       console.log(`[Connect] 用户 ${user.username} 连接，当前状态: ${currentUser.status}`);
       
-      // 检查用户是否有进行中的任务
-      const activeTask = await taskRepository.findActiveTaskByPlayer(user.id);
-      const shouldResetToIdle = currentUser.status === 'busy' && !activeTask;
-      const shouldResetToBusy = currentUser.status === 'idle' && activeTask;
-      
-      let finalStatus = currentUser.status;
-      let statusChanged = false;
-      
-      // 只在必要时重置状态
-      if (shouldResetToIdle) {
+      // 对于离线状态的陪玩员，自动设为空闲（表示重新上线）
+      if (user.role === 'player' && currentUser.status === 'offline') {
         await userRepository.updateStatus(user.id, 'idle');
-        finalStatus = 'idle';
-        statusChanged = true;
-        console.log(`[Connect] 用户 ${user.username} 从 busy 重置为 idle (无活跃任务)`);
-      } else if (shouldResetToBusy) {
-        await userRepository.updateStatus(user.id, 'busy');
-        finalStatus = 'busy';
-        statusChanged = true;
-        console.log(`[Connect] 用户 ${user.username} 从 idle 重置为 busy (有活跃任务)`);
-      }
-      
-      // 只有状态发生变化时才广播事件，避免循环
-      if (statusChanged) {
+        console.log(`[Connect] 用户 ${user.username} 从 offline 重置为 idle (重新上线)`);
+        
+        // 广播状态变更事件
         socket.to('dispatchers').to(`player_${user.id}`).emit('player_status_changed', { 
           userId: user.id, 
           username: user.username, 
-          status: finalStatus,
+          status: 'idle',
           isOnline: true
         });
-        console.log(`[Connect] 广播状态变更事件: ${user.username} -> ${finalStatus}`);
+        console.log(`[Connect] 广播状态变更事件: ${user.username} -> idle (online)`);
       }
     }
 

@@ -195,6 +195,24 @@ export default function PlayerPage() {
   const toggleStatus = async () => {
     if (!user) return;
     
+    // offline状态不能直接切换，需要先变为idle
+    if (user.status === 'offline') {
+      const newStatus = 'idle';
+      setIsUpdatingStatus(true);
+      
+      try {
+        await usersApi.updateStatus({ status: newStatus });
+        await refreshUser();
+        toast.success(`状态已更新为空闲`);
+      } catch (error: any) {
+        console.error('Error updating status:', error);
+        toast.error('更新状态失败');
+      } finally {
+        setIsUpdatingStatus(false);
+      }
+      return;
+    }
+    
     const newStatus = user.status === 'idle' ? 'busy' : 'idle';
     setIsUpdatingStatus(true);
     
@@ -308,10 +326,15 @@ export default function PlayerPage() {
               disabled={isUpdatingStatus}
               className={user.status === 'idle' 
                 ? 'bg-green-600 hover:bg-green-700 text-white' 
-                : 'bg-orange-600 hover:bg-orange-700 text-white'
+                : user.status === 'busy' 
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                  : 'bg-gray-600 hover:bg-gray-700 text-white'
               }
             >
-              {isUpdatingStatus ? '更新中...' : (user.status === 'idle' ? '空闲中' : '忙碌中')}
+              {isUpdatingStatus ? '更新中...' : (
+                user.status === 'idle' ? '空闲中' : 
+                user.status === 'busy' ? '忙碌中' : '离线'
+              )}
             </Button>
           </div>
         </div>
