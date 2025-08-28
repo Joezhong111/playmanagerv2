@@ -47,9 +47,9 @@ export default function LoginPage() {
       await login({ username, password });
       toast.success('登录成功');
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      toast.error(error.response?.data?.message || '登录失败，请检查用户名和密码');
+      toast.error(error instanceof Error ? error.message : '登录失败，请检查用户名和密码');
     } finally {
       setIsLoading(false);
     }
@@ -64,9 +64,9 @@ export default function LoginPage() {
       await login({ username: account.username, password: account.password });
       toast.success(`使用${account.description}登录成功`);
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Test account login error:', error);
-      toast.error(error.response?.data?.message || '登录失败');
+      toast.error(error instanceof Error ? error.message : '登录失败');
     } finally {
       setIsLoading(false);
     }

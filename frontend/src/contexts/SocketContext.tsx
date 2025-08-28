@@ -133,7 +133,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         });
 
         // User status events - 统一处理用户状态变更
-        socket.on('player_status_changed', (data: { userId: number; status: string; username: string; isOnline?: boolean }) => {
+        socket.on('player_status_changed', (data: { userId: number; status: 'idle' | 'busy' | 'offline'; username: string; isOnline?: boolean }) => {
           console.log('Player status changed:', data);
           
           // 更新在线用户列表
@@ -173,16 +173,22 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         });
 
         // General notifications
-        socket.on('notification', (notification: any) => {
+        socket.on('notification', (notification: unknown) => {
           console.log('Notification received:', notification);
-          toast(notification.message, {
-            description: notification.description,
+          const notif = notification as {
+            message?: string;
+            description?: string;
+            title?: string;
+            type?: 'info' | 'success' | 'warning' | 'error';
+          };
+          toast(notif.message || '通知', {
+            description: notif.description,
           });
           addNotification({
             id: `notification-${Date.now()}`,
-            title: notification.title || '通知',
-            message: notification.message,
-            type: notification.type || 'info',
+            title: notif.title || '通知',
+            message: notif.message || '',
+            type: notif.type || 'info',
             timestamp: new Date(),
           });
         });

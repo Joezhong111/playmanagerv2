@@ -46,7 +46,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (user && isAuthenticated) {
       const socket = socketManager.connect();
       if (socket) {
-        const handleUserStatusChange = (data: { userId: number; username: string; status: string }) => {
+        const handleUserStatusChange = (data: { userId: number; username: string; status: 'idle' | 'busy' | 'offline' }) => {
           console.log('[AuthContext] 收到用户状态变更事件:', data);
           // 只更新当前用户的状态
           if (user.id === data.userId) {
@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch (error) {
           // Token is invalid or verification failed, clear auth data
           console.error('Token verification failed:', error);
-          if (error.message === 'Token verification timeout') {
+          if ((error as Error).message === 'Token verification timeout') {
             console.warn('Auth verification timed out, clearing auth state');
           }
           clearAuth();

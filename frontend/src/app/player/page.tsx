@@ -116,7 +116,7 @@ export default function PlayerPage() {
       
       let allTasks: Task[] = [];
       let queuedTasksData: Task[] = [];
-      let dashboardStats: any = null;
+      let dashboardStats: unknown = null;
       
       // 分批执行请求，避免并发雪崩
       try {
@@ -151,13 +151,13 @@ export default function PlayerPage() {
           dashboardStats = null;
         }
         
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Critical error loading tasks:', error);
         // 如果是超时错误，提供特定的错误信息
-        if (error.message && error.message.includes('超时')) {
+        if (error instanceof Error && error.message.includes('超时')) {
           toast.error('网络连接超时，请稍后重试或检查网络连接');
         } else {
-          toast.error('加载任务失败: ' + (error.message || '未知错误'));
+          toast.error('加载任务失败: ' + (error instanceof Error ? error.message : '未知错误'));
         }
         return;
       }
@@ -194,9 +194,9 @@ export default function PlayerPage() {
         toast.success('数据加载完成！');
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading tasks:', error);
-      toast.error('加载任务失败: ' + (error.message || '未知错误'));
+      toast.error('加载任务失败: ' + (error instanceof Error ? error.message : '未知错误'));
     } finally {
       setIsLoadingTasks(false);
       setIsLoadingStats(false);
@@ -210,7 +210,7 @@ export default function PlayerPage() {
       const result = await playerStatsApi.getMyTasks({
         status: 'completed',
         page,
-        limit: parseInt(completedPagination.limit) || 10
+        limit: completedPagination.limit || 10
       });
       
       if (reset) {
@@ -225,7 +225,7 @@ export default function PlayerPage() {
         total: result.pagination?.total || 0,
         totalPages: result.pagination?.totalPages || 0
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading completed tasks:', error);
       toast.error('加载已完成任务失败');
     } finally {
@@ -250,9 +250,9 @@ export default function PlayerPage() {
       await tasksApi.accept(taskId);
       toast.success('任务接受成功');
       await loadTasks();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error accepting task:', error);
-      toast.error(error.response?.data?.message || '接受任务失败');
+      toast.error(error instanceof Error ? error.message : '接受任务失败');
     } finally {
       setIsTaskActionLoading(false);
     }
@@ -270,9 +270,9 @@ export default function PlayerPage() {
       toast.success('任务已开始');
       // 跳转到专注页面
       router.push(`/player/focus?taskId=${taskId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error starting task:', error);
-      toast.error(error.response?.data?.message || '开始任务失败');
+      toast.error(error instanceof Error ? error.message : '开始任务失败');
     } finally {
       setIsTaskActionLoading(false);
     }
@@ -298,9 +298,9 @@ export default function PlayerPage() {
       if (showCompletedHistory) {
         await loadCompletedTasks(1, true);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error completing task:', error);
-      toast.error(error.response?.data?.message || '完成任务失败');
+      toast.error(error instanceof Error ? error.message : '完成任务失败');
     } finally {
       setIsTaskActionLoading(false);
     }
@@ -319,9 +319,9 @@ export default function PlayerPage() {
       await tasksApi.pause(taskId);
       toast.success('任务已暂停');
       await loadTasks();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error pausing task:', error);
-      toast.error(error.response?.data?.message || '暂停任务失败');
+      toast.error(error instanceof Error ? error.message : '暂停任务失败');
       // 如果失败，恢复原状态
       await loadTasks();
     } finally {
@@ -342,9 +342,9 @@ export default function PlayerPage() {
       await tasksApi.resume(taskId);
       toast.success('任务已恢复');
       await loadTasks();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resuming task:', error);
-      toast.error(error.response?.data?.message || '恢复任务失败');
+      toast.error(error instanceof Error ? error.message : '恢复任务失败');
       // 如果失败，恢复原状态
       await loadTasks();
     } finally {
@@ -364,7 +364,7 @@ export default function PlayerPage() {
         await usersApi.updateStatus({ status: newStatus });
         await refreshUser();
         toast.success(`状态已更新为空闲`);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error updating status:', error);
         toast.error('更新状态失败');
       } finally {
@@ -380,7 +380,7 @@ export default function PlayerPage() {
       await usersApi.updateStatus({ status: newStatus });
       await refreshUser();
       toast.success(`状态已更新为${newStatus === 'idle' ? '空闲' : '忙碌'}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating status:', error);
       toast.error('更新状态失败');
     } finally {
@@ -448,7 +448,7 @@ export default function PlayerPage() {
     return `${minutes}分钟`;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleDateString('zh-CN', {

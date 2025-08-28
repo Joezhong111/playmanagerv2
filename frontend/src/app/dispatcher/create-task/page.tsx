@@ -10,15 +10,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, User, DollarSign, Clock } from 'lucide-react';
+import { ArrowLeft, Save, User as User, DollarSign, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi, usersApi, gameDictionaryApi } from '@/lib/api';
-import type { User, CreateTaskRequest, GameName, GameMode, GameDictionary } from '@/types/api';
+import type { User as UserType, CreateTaskRequest, GameMode, GameDictionary } from '@/types/api';
 
 export default function CreateTaskPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [players, setPlayers] = useState<User[]>([]);
+  const [players, setPlayers] = useState<UserType[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gameDictionary, setGameDictionary] = useState<GameDictionary | null>(null);
@@ -64,7 +64,7 @@ export default function CreateTaskPage() {
       setIsLoadingPlayers(true);
       const allPlayers = await usersApi.getPlayers();
       setPlayers(allPlayers);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading players:', error);
       toast.error('加载陪玩员列表失败');
     } finally {
@@ -79,7 +79,7 @@ export default function CreateTaskPage() {
       setGameDictionary(dictionary);
       // Load all common modes initially
       setAvailableGameModes(dictionary.commonModes || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading game dictionary:', error);
       toast.error('加载游戏字典失败');
     } finally {
@@ -87,7 +87,7 @@ export default function CreateTaskPage() {
     }
   };
 
-  const handleInputChange = (field: keyof CreateTaskRequest, value: any) => {
+  const handleInputChange = (field: keyof CreateTaskRequest, value: string | number | undefined) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -148,9 +148,9 @@ export default function CreateTaskPage() {
       await tasksApi.create(taskData);
       toast.success('任务创建成功');
       router.push('/dispatcher');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating task:', error);
-      toast.error(error.response?.data?.message || '创建任务失败');
+      toast.error(error instanceof Error ? error.message : '创建任务失败');
     } finally {
       setIsSubmitting(false);
     }

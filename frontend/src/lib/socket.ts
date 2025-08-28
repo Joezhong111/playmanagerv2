@@ -87,13 +87,13 @@ class SocketManager {
 
     // 监听所有事件以更新活动时间
     const originalOn = this.socket.on.bind(this.socket);
-    this.socket.on = (event: string, listener: (...args: any[]) => void) => {
+    this.socket.on = ((event: string, listener: (...args: any[]) => void) => {
       const wrappedListener = (...args: any[]) => {
         this.updateActivity();
         return listener(...args);
       };
       return originalOn(event, wrappedListener);
-    };
+    }) as typeof this.socket.on;
   }
 
   disconnect() {
@@ -219,27 +219,27 @@ class SocketManager {
   }
 
   // Task-related events
-  onTaskCreated(callback: (task: any) => void) {
+  onTaskCreated(callback: (task: unknown) => void) {
     this.socket?.on('task_created', callback);
   }
 
-  onTaskUpdated(callback: (task: any) => void) {
+  onTaskUpdated(callback: (task: unknown) => void) {
     this.socket?.on('task_updated', callback);
   }
 
-  onTaskAccepted(callback: (task: any) => void) {
+  onTaskAccepted(callback: (task: unknown) => void) {
     this.socket?.on('task_accepted', callback);
   }
 
-  onTaskStarted(callback: (task: any) => void) {
+  onTaskStarted(callback: (task: unknown) => void) {
     this.socket?.on('task_started', callback);
   }
 
-  onTaskCompleted(callback: (task: any) => void) {
+  onTaskCompleted(callback: (task: unknown) => void) {
     this.socket?.on('task_completed', callback);
   }
 
-  onTaskCancelled(callback: (task: any) => void) {
+  onTaskCancelled(callback: (task: unknown) => void) {
     this.socket?.on('task_cancelled', callback);
   }
 
@@ -257,12 +257,12 @@ class SocketManager {
   }
 
   // Notification events
-  onNotification(callback: (notification: any) => void) {
+  onNotification(callback: (notification: unknown) => void) {
     this.socket?.on('notification', callback);
   }
 
   // Remove event listeners
-  off(event: string, callback?: (...args: any[]) => void) {
+  off(event: string, callback?: (...args: unknown[]) => void) {
     this.socket?.off(event, callback);
   }
 

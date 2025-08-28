@@ -40,18 +40,22 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Edit,
-  User,
+  User as UserIcon,
   CheckCircle,
   XCircle,
   RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi } from '@/lib/api';
-import type { Task, User } from '@/types/api';
+import type { Task } from '@/types/api';
 
 interface EditTaskDialogProps {
   task: Task;
-  players: User[];
+  players: Array<{
+    id: number;
+    username: string;
+    status: 'idle' | 'busy' | 'offline';
+  }>;
   onSuccess?: (updatedTask: Task) => void;
   onClose?: () => void;
 }
@@ -89,7 +93,7 @@ export default function EditTaskDialog({
   };
 
   const getStatusText = (status: Task['status']) => {
-    const texts = {
+    const texts: Record<Task['status'], string> = {
       pending: '待接受',
       accepted: '已接受',
       queued: '排队中',
@@ -97,12 +101,13 @@ export default function EditTaskDialog({
       paused: '已暂停',
       completed: '已完成',
       cancelled: '已取消',
+      overtime: '已超时'
     };
     return texts[status] || status;
   };
 
   const getStatusColor = (status: Task['status']) => {
-    const colors = {
+    const colors: Record<Task['status'], string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       accepted: 'bg-blue-100 text-blue-800',
       queued: 'bg-purple-100 text-purple-800',
@@ -110,6 +115,7 @@ export default function EditTaskDialog({
       paused: 'bg-orange-100 text-orange-800',
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
+      overtime: 'bg-red-100 text-red-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -157,8 +163,8 @@ export default function EditTaskDialog({
         game_mode: formData.game_mode.trim(),
         duration: formData.duration,
         price: formData.price,
-        requirements: formData.requirements.trim() || null,
-        player_id: formData.player_id || null
+        requirements: formData.requirements.trim() || undefined,
+        player_id: formData.player_id || undefined
       };
 
       const updatedTask = await tasksApi.update(task.id, updateData);
@@ -413,7 +419,7 @@ export default function EditTaskDialog({
             {selectedPlayerForReassign && (
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center">
-                  <User className="w-4 h-4 text-blue-600 mr-2" />
+                  <UserIcon className="w-4 h-4 text-blue-600 mr-2" />
                   <span className="text-sm text-blue-800">
                     将任务指派给: {idlePlayers.find(p => p.id === selectedPlayerForReassign)?.username}
                   </span>

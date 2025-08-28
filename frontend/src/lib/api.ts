@@ -2,7 +2,6 @@ import axios, { AxiosResponse } from 'axios';
 import Cookies from 'js-cookie';
 import type {
   ApiResponse,
-  ApiError,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
@@ -23,7 +22,16 @@ import type {
   TimeExtensionRequest,
   CreateExtensionRequest,
   ReviewExtensionRequest,
-  ExtendTaskDurationRequest
+  ExtendTaskDurationRequest,
+  CompleteTaskResponse,
+  GameDictionary,
+  GameMode,
+  GameName,
+  CreateGameNameRequest,
+  UpdateGameNameRequest,
+  CreateGameModeRequest,
+  UpdateGameModeRequest,
+  DeleteDictionaryResponse
 } from '@/types/api';
 
 // Create axios instance with base configuration
@@ -33,13 +41,11 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  retry: 3, // 添加重试配置
-  retryDelay: 1000, // 重试间隔1秒
 });
 
 // 请求队列管理，防止并发请求雪崩
 class RequestQueue {
-  private queue: Array<() => Promise<any>> = [];
+  private queue: Array<() => Promise<unknown>> = [];
   private processing = false;
   private readonly maxConcurrent = 3; // 最大并发数
   private activeRequests = 0;
@@ -106,7 +112,7 @@ api.interceptors.request.use(
 
 // Response interceptor for error handling with retry logic
 api.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse<any>>) => {
+  (response: AxiosResponse<ApiResponse<unknown>>) => {
     return response;
   },
   async (error) => {
@@ -210,9 +216,9 @@ const handleResponse = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 const handleLongIdleRequest = async <T>(requestFn: () => Promise<T>, description: string = 'request'): Promise<T> => {
   try {
     return await requestQueue.add(requestFn);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 如果是超时错误，提供更友好的错误信息
-    if (error.code === 'ECONNABORTED') {
+    if ((error as any).code === 'ECONNABORTED') {
       throw new Error(`${description}超时，可能由于长时间未活动导致。请稍后重试。`);
     }
     throw error;
@@ -440,7 +446,7 @@ export const superAdminApi = {
     await api.delete(`/super-admin/users/${id}`);
   },
 
-  async batchUpdateUsers(data: { userIds: number[]; action: string; value?: any }): Promise<void> {
+  async batchUpdateUsers(data: { userIds: number[]; action: string; value?: unknown }): Promise<void> {
     await api.put('/super-admin/users/batch', data);
   },
 

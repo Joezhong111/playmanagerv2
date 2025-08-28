@@ -232,10 +232,10 @@ export default function DispatcherPage() {
       setIsLoadingTasks(true);
       const allTasks = await tasksApi.getAll();
       setTasks(allTasks);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading tasks:', error);
       // 如果是网络错误，显示更友好的错误信息
-      if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || !error.response) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('ECONNRESET') || !('response' in error))) {
         toast.error('网络连接问题，请检查网络连接');
       } else {
         toast.error('加载任务失败');
@@ -252,10 +252,10 @@ export default function DispatcherPage() {
       setIsLoadingPlayers(true);
       const allPlayers = await usersApi.getPlayers();
       setPlayers(allPlayers);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading players:', error);
       // 如果是网络错误，显示更友好的错误信息
-      if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || !error.response) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('ECONNRESET') || !('response' in error))) {
         toast.error('网络连接问题，请检查网络连接');
       } else {
         toast.error('加载陪玩员失败');
@@ -272,10 +272,10 @@ export default function DispatcherPage() {
       setIsLoadingPlayerDetails(true);
       const details = await usersApi.getPlayerDetails();
       setPlayerDetails(details);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading player details:', error);
       // 如果是网络错误，显示更友好的错误信息
-      if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || !error.response) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('ECONNRESET') || !('response' in error))) {
         toast.error('网络连接问题，请检查网络连接');
       } else {
         toast.error('加载陪玩员详情失败');
@@ -292,9 +292,9 @@ export default function DispatcherPage() {
       const result = await tasksApi.complete(taskId);
       toast.success('任务已完成！');
       await loadTasks();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error completing task:', error);
-      toast.error(error.response?.data?.message || '完成任务失败');
+      toast.error(error instanceof Error ? error.message : '完成任务失败');
     }
   };
 
@@ -326,7 +326,7 @@ export default function DispatcherPage() {
     return texts[status] || status;
   };
 
-  const getPlayerName = (playerId: number | null) => {
+  const getPlayerName = (playerId: number | null | undefined) => {
     if (!playerId) return '未指派';
     const player = players.find(p => p.id === playerId);
     return player?.username || `用户${playerId}`;
