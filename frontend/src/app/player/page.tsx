@@ -809,7 +809,7 @@ export default function PlayerPage() {
                           <span className="text-sm font-medium text-blue-800">总收入</span>
                         </div>
                         <div className="text-2xl font-bold text-blue-600 mt-1">
-                          ¥{completedTasks.reduce((sum, task) => sum + task.price, 0)}
+                          ¥{totalEarnings}
                         </div>
                       </div>
                       <div className="bg-purple-50 p-4 rounded-lg">
@@ -818,7 +818,7 @@ export default function PlayerPage() {
                           <span className="text-sm font-medium text-purple-800">平均单价</span>
                         </div>
                         <div className="text-2xl font-bold text-purple-600 mt-1">
-                          ¥{Math.round(completedTasks.reduce((sum, task) => sum + task.price, 0) / completedTasks.length)}
+                          ¥{completedTasksCount > 0 ? Math.round(totalEarnings / completedTasksCount) : 0}
                         </div>
                       </div>
                     </div>

@@ -24,10 +24,14 @@ const dbConfig = {
 const pool = mysql.createPool(dbConfig);
 
 // 在每个连接建立时设置时区
+let connectionCount = 0;
 pool.on('connection', function (connection) {
   connection.query("SET time_zone = '+08:00'");
   connection.query("SET names utf8mb4");
-  console.log('数据库连接已设置时区: +08:00 (北京时间)');
+  connectionCount++;
+  if (connectionCount <= 1 || process.env.NODE_ENV === 'development') {
+    console.log(`数据库连接已设置时区: +08:00 (北京时间) [连接数: ${connectionCount}]`);
+  }
 });
 
 // 获取当前数据库时区的函数
