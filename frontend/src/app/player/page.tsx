@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSocket } from '@/lib/socket';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,12 +27,13 @@ import {
   Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { tasksApi, usersApi, playerStatsApi } from '@/lib/api';
+import { tasksApi, usersApi, playerStatsApi, handleLongIdleRequest, checkLongIdleStatus } from '@/lib/api';
 import type { Task } from '@/types/api';
 
 export default function PlayerPage() {
   const { user, isLoading, refreshUser } = useAuth();
   const router = useRouter();
+  const socketManager = useSocket();
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [queuedTasks, setQueuedTasks] = useState<Task[]>([]);
@@ -39,6 +41,8 @@ export default function PlayerPage() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isTaskActionLoading, setIsTaskActionLoading] = useState(false);
+  const [longIdleDetected, setLongIdleDetected] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
   
   // Statistics state
   const [stats, setStats] = useState<any>({
@@ -66,6 +70,30 @@ export default function PlayerPage() {
     }
   }, [user, isLoading, router]);
 
+  // Monitor socket connection
+  useEffect(() => {
+    const updateSocketStatus = () => {
+      setSocketConnected(socketManager.isConnected());
+    };
+
+    // 初始状态
+    updateSocketStatus();
+
+    // 监听连接状态变化
+    const socket = socketManager.getSocket();
+    if (socket) {
+      socket.on('connect', updateSocketStatus);
+      socket.on('disconnect', updateSocketStatus);
+      socket.on('connect_error', updateSocketStatus);
+      
+      return () => {
+        socket.off('connect', updateSocketStatus);
+        socket.off('disconnect', updateSocketStatus);
+        socket.off('connect_error', updateSocketStatus);
+      };
+    }
+  }, [socketManager]);
+
   // Load data
   useEffect(() => {
     if (user?.role === 'player') {
@@ -79,11 +107,60 @@ export default function PlayerPage() {
       setIsLoadingTasks(true);
       setIsLoadingStats(true);
       
-      const [allTasks, queuedTasksData, dashboardStats] = await Promise.all([
-        tasksApi.getAll(),
-        tasksApi.getQueuedTasks(),
-        playerStatsApi.getDashboardOverview()
-      ]);
+      // 检测长时间挂机状态
+      const isLongIdle = checkLongIdleStatus();
+      if (isLongIdle) {
+        setLongIdleDetected(true);
+        toast.info('检测到长时间未活动，正在重新连接...', { duration: 3000 });
+      }
+      
+      let allTasks: Task[] = [];
+      let queuedTasksData: Task[] = [];
+      let dashboardStats: any = null;
+      
+      // 分批执行请求，避免并发雪崩
+      try {
+        // 第一步：获取任务数据
+        if (isLongIdle) {
+          allTasks = await handleLongIdleRequest(() => tasksApi.getAll(), '获取任务列表');
+        } else {
+          allTasks = await tasksApi.getAll();
+        }
+        
+        // 第二步：获取排队任务（可能失败，但不影响主要功能）
+        try {
+          if (isLongIdle) {
+            queuedTasksData = await handleLongIdleRequest(() => tasksApi.getQueuedTasks(), '获取排队任务');
+          } else {
+            queuedTasksData = await tasksApi.getQueuedTasks();
+          }
+        } catch (queueError) {
+          console.warn('Failed to load queued tasks:', queueError);
+          queuedTasksData = [];
+        }
+        
+        // 第三步：获取统计数据（可能失败，但不影响主要功能）
+        try {
+          if (isLongIdle) {
+            dashboardStats = await handleLongIdleRequest(() => playerStatsApi.getDashboardOverview(), '获取统计数据');
+          } else {
+            dashboardStats = await playerStatsApi.getDashboardOverview();
+          }
+        } catch (statsError) {
+          console.warn('Failed to load dashboard stats:', statsError);
+          dashboardStats = null;
+        }
+        
+      } catch (error: any) {
+        console.error('Critical error loading tasks:', error);
+        // 如果是超时错误，提供特定的错误信息
+        if (error.message && error.message.includes('超时')) {
+          toast.error('网络连接超时，请稍后重试或检查网络连接');
+        } else {
+          toast.error('加载任务失败: ' + (error.message || '未知错误'));
+        }
+        return;
+      }
       
       // Filter tasks for player
       const available = allTasks.filter(task => 
@@ -110,9 +187,16 @@ export default function PlayerPage() {
         overview: dashboardStats,
         earnings: null
       });
+      
+      // 成功加载后清除长时间挂机状态
+      if (longIdleDetected) {
+        setLongIdleDetected(false);
+        toast.success('数据加载完成！');
+      }
+      
     } catch (error: any) {
       console.error('Error loading tasks:', error);
-      toast.error('加载任务失败');
+      toast.error('加载任务失败: ' + (error.message || '未知错误'));
     } finally {
       setIsLoadingTasks(false);
       setIsLoadingStats(false);
@@ -394,20 +478,79 @@ export default function PlayerPage() {
   return (
     <AppLayout title="陪玩员工作台">
       <div className="space-y-6">
+        {/* Long Idle Warning */}
+        {longIdleDetected && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-5 h-5 text-orange-400">⚠️</div>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-orange-800">
+                  检测到长时间未活动
+                </h3>
+                <div className="mt-2 text-sm text-orange-700">
+                  <p>系统检测到您已长时间未操作，连接可能不稳定。建议您：</p>
+                  <ul className="list-disc list-inside mt-1">
+                    <li>点击"重新连接"按钮刷新数据</li>
+                    <li>检查网络连接是否正常</li>
+                    <li>如遇问题请尝试重新登录</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="ml-auto">
+                <button
+                  type="button"
+                  className="bg-orange-50 rounded-md p-1.5 text-orange-500 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                  onClick={() => setLongIdleDetected(false)}
+                >
+                  <span className="sr-only">关闭</span>
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header Actions */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">我的工作台</h1>
             <p className="text-gray-600">管理您的陪玩任务和状态</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex space-x-3 items-center">
+            {/* Socket连接状态指示器 */}
+            <div className="flex items-center space-x-2">
+              <div 
+                className={`w-2 h-2 rounded-full ${
+                  socketConnected ? 'bg-green-500' : 'bg-red-500'
+                } animate-pulse`}
+                title={socketConnected ? '实时连接正常' : '实时连接断开'}
+              />
+              <span className={`text-xs ${
+                socketConnected ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {socketConnected ? '在线' : '离线'}
+              </span>
+            </div>
+            
             <Button
               variant="outline"
-              onClick={loadTasks}
+              onClick={() => {
+                // 如果检测到长时间挂机，先尝试重连Socket
+                if (checkLongIdleStatus() && !socketConnected) {
+                  toast.info('检测到长时间未活动，正在重新建立连接...');
+                  socketManager.forceReconnect();
+                }
+                loadTasks();
+              }}
               disabled={isLoadingTasks}
+              className={longIdleDetected ? 'border-orange-500 text-orange-600' : ''}
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingTasks ? 'animate-spin' : ''}`} />
-              刷新
+              {longIdleDetected ? '重新连接' : '刷新'}
             </Button>
             <Button
               variant={user.status === 'idle' ? 'default' : 'secondary'}

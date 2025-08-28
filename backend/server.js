@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { config } from 'dotenv';
-import { testConnection, validateTimezone } from './config/database.js';
+import { testConnection, validateTimezone, getPoolStatus } from './config/database.js';
 import logger from './utils/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { NotFoundError } from './utils/AppError.js';
@@ -74,10 +74,19 @@ app.use('/api/', limiter);
 // 健康检查
 app.get('/health', async (req, res) => {
   const dbStatus = await testConnection();
+  const poolStatus = getPoolStatus();
+  
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    database: dbStatus ? 'connected' : 'disconnected'
+    database: dbStatus ? 'connected' : 'disconnected',
+    connectionPool: {
+      active: poolStatus.activeConnections,
+      free: poolStatus.freeConnections,
+      total: poolStatus.totalConnections,
+      limit: poolStatus.connectionLimit,
+      utilization: `${poolStatus.utilizationRate}%`
+    }
   });
 });
 
@@ -120,6 +129,16 @@ server.listen(PORT, async () => {
   // 测试数据库连接和时区
   await testConnection();
   await validateTimezone();
+  
+  // 显示连接池配置信息
+  const poolStatus = getPoolStatus();
+  logger.info('💾 数据库连接池配置:', {
+    最大连接数: poolStatus.connectionLimit,
+    当前总连接: poolStatus.totalConnections,
+    空闲连接: poolStatus.freeConnections,
+    活跃连接: poolStatus.activeConnections,
+    使用率: `${poolStatus.utilizationRate}%`
+  });
   
   // 启动超时检测服务
   overtimeService.start();

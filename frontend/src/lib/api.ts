@@ -29,13 +29,62 @@ import type {
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
-  timeout: 30000, // 增加到30秒
+  timeout: 45000, // 增加到45秒以处理长时间挂机后的首次请求
   headers: {
     'Content-Type': 'application/json',
   },
   retry: 3, // 添加重试配置
   retryDelay: 1000, // 重试间隔1秒
 });
+
+// 请求队列管理，防止并发请求雪崩
+class RequestQueue {
+  private queue: Array<() => Promise<any>> = [];
+  private processing = false;
+  private readonly maxConcurrent = 3; // 最大并发数
+  private activeRequests = 0;
+
+  async add<T>(requestFn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          this.activeRequests++;
+          const result = await requestFn();
+          this.activeRequests--;
+          resolve(result);
+        } catch (error) {
+          this.activeRequests--;
+          reject(error);
+        }
+      });
+      
+      this.processQueue();
+    });
+  }
+
+  private async processQueue() {
+    if (this.processing || this.activeRequests >= this.maxConcurrent || this.queue.length === 0) {
+      return;
+    }
+
+    this.processing = true;
+    while (this.queue.length > 0 && this.activeRequests < this.maxConcurrent) {
+      const request = this.queue.shift();
+      if (request) {
+        // 不等待单个请求完成，允许并发处理
+        request();
+      }
+    }
+    this.processing = false;
+
+    // 如果还有队列且没有达到并发限制，继续处理
+    if (this.queue.length > 0 && this.activeRequests < this.maxConcurrent) {
+      setTimeout(() => this.processQueue(), 100);
+    }
+  }
+}
+
+const requestQueue = new RequestQueue();
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -44,6 +93,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // 更新最后活动时间
+    updateLastActivity();
+    
     return config;
   },
   (error) => {
@@ -65,22 +118,35 @@ api.interceptors.response.use(
     }
     
     const maxRetry = config.retry || 3;
-    const retryDelay = config.retryDelay || 1000;
+    let retryDelay = config.retryDelay || 1000;
+    
+    // 检测长时间挂机场景（超时错误且是第一次重试）
+    const isLongIdle = error.code === 'ECONNABORTED' && config.retryCount === 0;
+    if (isLongIdle) {
+      retryDelay = 3000; // 长时间挂机后增加重试间隔
+      console.warn('Detected long idle, increasing retry delay to 3 seconds');
+    }
+    
+    // 实现指数退避策略
+    const exponentialDelay = retryDelay * Math.pow(2, config.retryCount);
+    const finalDelay = Math.min(exponentialDelay, 10000); // 最大10秒
     
     // 只在网络错误或5xx错误时重试
     if (config.retryCount < maxRetry && (
       error.code === 'ECONNABORTED' || 
       error.code === 'ECONNRESET' || 
       error.code === 'ETIMEDOUT' ||
+      error.code === 'ENOTFOUND' ||
+      error.code === 'ENETUNREACH' ||
       !error.response ||
       (error.response.status >= 500 && error.response.status < 600)
     )) {
       config.retryCount += 1;
       
-      console.warn(`Retrying request (${config.retryCount}/${maxRetry}): ${config.method?.toUpperCase()} ${config.url}`);
+      console.warn(`Retrying request (${config.retryCount}/${maxRetry}) after ${finalDelay}ms: ${config.method?.toUpperCase()} ${config.url}`);
       
-      // 等待指定时间后重试
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      // 指数退避等待
+      await new Promise(resolve => setTimeout(resolve, finalDelay));
       
       return api(config);
     }
@@ -114,6 +180,10 @@ api.interceptors.response.use(
     // Handle common errors
     if (error.code === 'ECONNABORTED') {
       console.warn(`Request timeout: ${error.config?.url} exceeded ${api.defaults.timeout}ms`);
+      // 添加长时间挂机检测提示
+      if (error.config && !error.config.retryCount) {
+        console.warn('This might be due to long idle time. The system will automatically retry with extended timeout.');
+      }
     }
     
     if (error.response?.status === 401) {
@@ -134,6 +204,36 @@ const handleResponse = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
     return response.data.data;
   }
   throw new Error(response.data.message || 'API request failed');
+};
+
+// 专门用于处理长时间挂机后的请求
+const handleLongIdleRequest = async <T>(requestFn: () => Promise<T>, description: string = 'request'): Promise<T> => {
+  try {
+    return await requestQueue.add(requestFn);
+  } catch (error: any) {
+    // 如果是超时错误，提供更友好的错误信息
+    if (error.code === 'ECONNABORTED') {
+      throw new Error(`${description}超时，可能由于长时间未活动导致。请稍后重试。`);
+    }
+    throw error;
+  }
+};
+
+// 检查是否为长时间挂机场景
+const checkLongIdleStatus = (): boolean => {
+  const lastActivity = localStorage.getItem('lastActivity');
+  if (!lastActivity) return false;
+  
+  const now = Date.now();
+  const lastTime = parseInt(lastActivity);
+  const fiveMinutes = 5 * 60 * 1000; // 5分钟
+  
+  return (now - lastTime) > fiveMinutes;
+};
+
+// 更新最后活动时间
+const updateLastActivity = () => {
+  localStorage.setItem('lastActivity', Date.now().toString());
 };
 
 // Authentication API
@@ -495,5 +595,8 @@ export const gameDictionaryApi = {
     return handleResponse(response);
   },
 };
+
+// 导出工具函数
+export { handleLongIdleRequest, checkLongIdleStatus, updateLastActivity };
 
 export default api;
