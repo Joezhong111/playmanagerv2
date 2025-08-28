@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database.js';
+import { SessionManager } from './session.js';
 
 // JWT认证中间件
 export function authenticateToken(req, res, next) {
@@ -40,13 +41,37 @@ export function requireRole(role) {
 
 // 管理员角色验证中间件
 export function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
     return res.status(403).json({ 
       success: false, 
       message: 'Admin permissions required' 
     });
   }
   next();
+}
+
+// 超级管理员角色验证中间件
+export function requireSuperAdmin(req, res, next) {
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Super admin permissions required' 
+    });
+  }
+  next();
+}
+
+// 多角色验证中间件
+export function requireRoles(roles) {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Insufficient permissions' 
+      });
+    }
+    next();
+  };
 }
 
 // 用户存在性验证中间件

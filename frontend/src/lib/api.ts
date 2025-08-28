@@ -313,6 +313,81 @@ export const statsApi = {
   },
 };
 
+// Super Admin API
+export const superAdminApi = {
+  // User management
+  async getUsers(query?: { role?: string; status?: string; search?: string }): Promise<User[]> {
+    const response = await api.get<ApiResponse<User[]>>('/super-admin/users', { params: query });
+    return handleResponse(response);
+  },
+
+  async getUserById(id: number): Promise<User> {
+    const response = await api.get<ApiResponse<User>>(`/super-admin/users/${id}`);
+    return handleResponse(response);
+  },
+
+  async createUser(userData: { username: string; password: string; role: string }): Promise<User> {
+    const response = await api.post<ApiResponse<User>>('/super-admin/users', userData);
+    return handleResponse(response);
+  },
+
+  async updateUser(id: number, userData: Partial<User>): Promise<User> {
+    const response = await api.put<ApiResponse<User>>(`/super-admin/users/${id}`, userData);
+    return handleResponse(response);
+  },
+
+  async deleteUser(id: number): Promise<void> {
+    await api.delete(`/super-admin/users/${id}`);
+  },
+
+  async batchUpdateUsers(data: { userIds: number[]; action: string; value?: any }): Promise<void> {
+    await api.put('/super-admin/users/batch', data);
+  },
+
+  async resetPassword(id: number): Promise<{ message: string }> {
+    const response = await api.post<ApiResponse<{ message: string }>>(`/super-admin/users/${id}/reset-password`);
+    return handleResponse(response);
+  },
+
+  // Statistics
+  async getSystemOverview(): Promise<any> {
+    const response = await api.get<ApiResponse<any>>('/super-admin/stats/overview');
+    return handleResponse(response);
+  },
+
+  async getTrendAnalysis(period: string = '7d'): Promise<any> {
+    const response = await api.get<ApiResponse<any>>(`/super-admin/stats/trends`, { params: { period } });
+    return handleResponse(response);
+  },
+
+  async getRevenueAnalysis(period: string = '30d'): Promise<any> {
+    const response = await api.get<ApiResponse<any>>(`/super-admin/stats/revenue`, { params: { period } });
+    return handleResponse(response);
+  },
+
+  async getSystemHealth(): Promise<any> {
+    const response = await api.get<ApiResponse<any>>('/super-admin/stats/health');
+    return handleResponse(response);
+  },
+
+  // Export functionality
+  async exportUsers(format: string = 'csv'): Promise<Blob> {
+    const response = await api.get(`/super-admin/export/users`, { 
+      params: { format },
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  async exportStats(period: string = '30d', format: string = 'csv'): Promise<Blob> {
+    const response = await api.get(`/super-admin/export/stats`, { 
+      params: { period, format },
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+};
+
 // Health check
 export const healthApi = {
   async check(): Promise<{ status: string; timestamp: string; database: string }> {

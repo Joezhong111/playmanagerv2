@@ -17,6 +17,9 @@ export default function DashboardPage() {
 
       // Redirect based on user role
       switch (user?.role) {
+        case 'super_admin':
+          router.push('/super-admin');
+          break;
         case 'dispatcher':
           router.push('/dispatcher');
           break;

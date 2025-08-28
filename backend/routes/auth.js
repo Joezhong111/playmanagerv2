@@ -22,4 +22,6 @@ router.post('/register', registerValidation, authController.register);
 
 router.get('/verify', authController.verify);
 
+router.post('/logout', authController.logout);
+
 export default router;

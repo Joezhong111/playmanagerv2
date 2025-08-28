@@ -19,6 +19,7 @@ interface TestAccount {
 }
 
 const testAccounts: TestAccount[] = [
+  { username: 'super_admin', password: 'admin123', role: 'super_admin', description: '超级管理员' },
   { username: 'admin', password: 'admin123', role: 'dispatcher', description: '主要派单员' },
   { username: 'dispatcher2', password: 'admin123', role: 'dispatcher', description: '副派单员' },
   { username: 'player1', password: 'admin123', role: 'player', description: '陪玩员1 (空闲)' },
@@ -73,6 +74,8 @@ export default function LoginPage() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
+      case 'super_admin':
+        return 'bg-purple-100 text-purple-800 hover:bg-purple-200';
       case 'dispatcher':
         return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
       case 'player':
@@ -173,7 +176,8 @@ export default function LoginPage() {
                     variant="secondary" 
                     className={getRoleColor(account.role)}
                   >
-                    {account.role === 'dispatcher' ? '派单员' : '陪玩员'}
+                    {account.role === 'super_admin' ? '超级管理员' : 
+                     account.role === 'dispatcher' ? '派单员' : '陪玩员'}
                   </Badge>
                 </Button>
               ))}

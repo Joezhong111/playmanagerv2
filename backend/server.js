@@ -15,6 +15,10 @@ import userRoutes from './routes/users.js';
 import taskRoutes from './routes/tasks.js';
 import setupRoutes from './routes/setup.js';
 import statsRoutes from './routes/stats.js';
+import superAdminRoutes from './routes/super-admin.js';
+import superAdminStatsRoutes from './routes/super-admin-stats.js';
+import dispatcherStatsRoutes from './routes/dispatcher-stats.js';
+import playerStatsRoutes from './routes/player-stats.js';
 import { taskController } from './controllers/task.controller.js';
 
 // Socket处理导入
@@ -22,6 +26,7 @@ import { handleSocketConnection } from './sockets/taskSocket.js';
 
 // 超时检测服务导入
 import { overtimeService, setGlobalIo } from './services/overtime.service.js';
+import { sessionCleanupService } from './services/session-cleanup.service.js';
 
 config();
 
@@ -81,6 +86,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/super-admin/stats', superAdminStatsRoutes);
+app.use('/api/dispatcher/stats', dispatcherStatsRoutes);
+app.use('/api/player/stats', playerStatsRoutes);
 
 // 静态文件服务 (可选，用于serve前端build后的文件)
 app.use(express.static('../frontend/dist'));
@@ -114,6 +123,10 @@ server.listen(PORT, async () => {
   overtimeService.start();
   logger.info('⏰ 超时检测服务已启动');
   
+  // 启动会话清理服务
+  sessionCleanupService.start();
+  logger.info('🧹 会话清理服务已启动');
+  
   logger.info('✅ 系统就绪，等待连接...');
 });
 
@@ -121,6 +134,7 @@ server.listen(PORT, async () => {
 process.on('SIGTERM', () => {
   logger.info('收到终止信号，正在关闭服务器...');
   overtimeService.stop();
+  sessionCleanupService.stop();
   server.close(() => {
     logger.info('服务器已关闭');
   });
@@ -129,6 +143,7 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   logger.info('收到中断信号，正在关闭服务器...');
   overtimeService.stop();
+  sessionCleanupService.stop();
   server.close(() => {
     logger.info('服务器已关闭');
   });

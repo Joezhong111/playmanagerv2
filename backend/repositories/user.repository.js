@@ -22,7 +22,7 @@ class UserRepository {
 
   async findByUsername(username, connection = pool) {
     const [rows] = await connection.execute(
-      'SELECT id, username, password, role, status FROM users WHERE username = ?',
+      'SELECT id, username, password, role, status, is_active FROM users WHERE username = ?',
       [username]
     );
     return rows[0];

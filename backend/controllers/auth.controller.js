@@ -55,6 +55,23 @@ class AuthController {
       success: true,
       data: { user }
     });
+  })
+
+  logout = asyncHandler(async (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      throw new UnauthorizedError('Access token is missing');
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const result = await authService.logout(decoded.userId, token);
+
+    res.status(200).json({
+      success: true,
+      message: result.message
+    });
   });
 }
 
