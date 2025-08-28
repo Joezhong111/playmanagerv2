@@ -139,25 +139,11 @@ class SuperAdminStatsService {
     try {
       const { role = 'player', period = 'month', limit = 10 } = filters;
       
-      let dateCondition = '';
-      switch (period) {
-        case 'today':
-          dateCondition = 'DATE(t.completed_at) = CURDATE()';
-          break;
-        case 'week':
-          dateCondition = 'DATE(t.completed_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
-          break;
-        case 'month':
-          dateCondition = 'MONTH(t.completed_at) = MONTH(CURDATE()) AND YEAR(t.completed_at) = YEAR(CURDATE())';
-          break;
-        case 'year':
-          dateCondition = 'YEAR(t.completed_at) = YEAR(CURDATE())';
-          break;
-        default:
-          dateCondition = '1=1';
-      }
+      // 确保 limit 是整数
+      const limitValue = Math.max(1, Math.min(100, parseInt(limit) || 10));
       
-      const [rankings] = await pool.execute(`
+      // 构建基础SQL
+      let sql = `
         SELECT 
           u.id,
           u.username,
@@ -170,13 +156,37 @@ class SuperAdminStatsService {
           COUNT(CASE WHEN t.status = 'cancelled' THEN 1 END) as cancelledTasks,
           (SUM(t.price) / NULLIF(COUNT(t.id), 0)) as avgEarningsPerTask
         FROM users u
-        LEFT JOIN tasks t ON u.id = t.player_id AND t.status = 'completed' AND ${dateCondition}
+        LEFT JOIN tasks t ON u.id = t.player_id AND t.status = 'completed'`;
+      
+      // 根据时间周期添加JOIN条件
+      switch (period) {
+        case 'today':
+          sql += ' AND DATE(t.completed_at) = CURDATE()';
+          break;
+        case 'week':
+          sql += ' AND DATE(t.completed_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
+          break;
+        case 'month':
+          sql += ' AND MONTH(t.completed_at) = MONTH(CURDATE()) AND YEAR(t.completed_at) = YEAR(CURDATE())';
+          break;
+        case 'year':
+          sql += ' AND YEAR(t.completed_at) = YEAR(CURDATE())';
+          break;
+        default:
+          // 不添加额外的时间条件
+          break;
+      }
+      
+      sql += `
         WHERE u.role = ? AND u.is_active = TRUE
         GROUP BY u.id, u.username, u.role, u.status
         HAVING completedTasks > 0
         ORDER BY totalEarnings DESC, completedTasks DESC
-        LIMIT ?
-      `, [role, limit]);
+        LIMIT ${limitValue}`;
+      
+      const params = [role];
+      
+      const [rankings] = await pool.execute(sql, params);
       
       return rankings;
     } catch (error) {
@@ -271,8 +281,18 @@ class SuperAdminStatsService {
       const responseTime = Math.random() * 100 + 50; // 50-150ms
       
       // 数据库连接数
-      const [dbConnections] = await pool.execute('SHOW STATUS LIKE "Threads_connected"');
-      const activeConnections = parseInt(dbConnections[0].Value);
+      let activeConnections = 0;
+      try {
+        const [dbConnections] = await pool.execute('SHOW STATUS LIKE "Threads_connected"');
+        if (dbConnections.length > 0) {
+          const connectionData = dbConnections[0];
+          // MySQL可能返回Value或value，取决于版本和配置
+          activeConnections = parseInt(connectionData.Value || connectionData.value || '0') || 0;
+        }
+      } catch (dbError) {
+        console.warn('无法获取数据库连接数:', dbError.message);
+        activeConnections = 0;
+      }
       
       // 活跃用户数
       const [activeUsers] = await pool.execute(`

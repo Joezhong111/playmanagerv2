@@ -736,7 +736,7 @@ export default function SuperAdminPage() {
                                   ></div>
                                 </div>
                                 <span className="text-xs text-gray-500">
-                                  {statistics.overview.tasks?.completionRate?.toFixed(0) || 0}%完成
+                                  {(typeof statistics.overview.tasks?.completionRate === 'number' ? statistics.overview.tasks.completionRate.toFixed(0) : '0')}%完成
                                 </span>
                               </div>
                             </div>
@@ -776,7 +776,7 @@ export default function SuperAdminPage() {
                             <div>
                               <p className="text-sm font-medium text-gray-600">完成率</p>
                               <p className="text-2xl font-bold">
-                                {statistics.overview.tasks?.completionRate?.toFixed(1) || 0}%
+                                {(typeof statistics.overview.tasks?.completionRate === 'number' ? statistics.overview.tasks.completionRate.toFixed(1) : '0.0')}%
                               </p>
                               <div className="flex items-center gap-2 mt-1">
                                 <div className="w-16 bg-gray-200 rounded-full h-1">
@@ -990,14 +990,14 @@ export default function SuperAdminPage() {
                                   <div>
                                     <p className="font-medium">{player.username}</p>
                                     <p className="text-sm text-gray-500">
-                                      {player.completedTasks || 0}单 • 平均评分: {player.avgRating?.toFixed(1) || '0.0'}
+                                      {player.completedTasks || 0}单 • 平均评分: {(typeof player.avgRating === 'number' ? player.avgRating.toFixed(1) : '0.0')}
                                     </p>
                                   </div>
                                 </div>
                                 <div className="text-right">
                                   <p className="font-bold text-lg text-green-600">¥{player.totalEarnings || 0}</p>
                                   <p className="text-sm text-gray-500">
-                                    平均 ¥{player.avgEarningsPerTask?.toFixed(1) || '0'}/单
+                                    平均 ¥{(typeof player.avgEarningsPerTask === 'number' ? player.avgEarningsPerTask.toFixed(1) : '0.0')}/单
                                   </p>
                                 </div>
                               </div>

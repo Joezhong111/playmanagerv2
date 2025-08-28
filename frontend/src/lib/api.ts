@@ -361,7 +361,7 @@ export const superAdminApi = {
   },
 
   async getRevenueAnalysis(period: string = '30d'): Promise<any> {
-    const response = await api.get<ApiResponse<any>>(`/super-admin/stats/revenue`, { params: { period } });
+    const response = await api.get<ApiResponse<any>>(`/super-admin/stats/revenue/analysis`, { params: { period } });
     return handleResponse(response);
   },
 
