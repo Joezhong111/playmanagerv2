@@ -33,7 +33,7 @@ export interface LoginResponse {
 export interface User {
   id: number;
   username: string;
-  role: 'dispatcher' | 'player' | 'admin';
+  role: 'dispatcher' | 'player' | 'admin' | 'super_admin';
   status: 'idle' | 'busy' | 'offline';
   created_at?: string;
   updated_at?: string;

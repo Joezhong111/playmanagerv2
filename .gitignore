@@ -157,7 +157,7 @@ reports/
 # Documentation build artifacts
 docs/build/
 docs/_build/
-
+docs
 # Temporary development databases
 database.*
 db.*

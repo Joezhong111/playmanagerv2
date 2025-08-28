@@ -34,7 +34,14 @@ export default function CreateTaskPage() {
 
   // Check authentication and role
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'dispatcher')) {
+    if (!isLoading && !user) {
+      toast.error('请先登录');
+      router.push('/login');
+      return;
+    }
+    
+    // Allow access for dispatcher role or super admin (permission inheritance)
+    if (!isLoading && user && user.role !== 'dispatcher' && user.role !== 'super_admin') {
       toast.error('无权访问此页面');
       router.push('/login');
     }
@@ -42,7 +49,7 @@ export default function CreateTaskPage() {
 
   // Load players
   useEffect(() => {
-    if (user?.role === 'dispatcher') {
+    if (user && (user.role === 'dispatcher' || user.role === 'super_admin')) {
       loadPlayers();
     }
   }, [user]);

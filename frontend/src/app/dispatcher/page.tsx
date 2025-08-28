@@ -20,7 +20,8 @@ import {
   AlertCircle,
   Timer,
   Edit,
-  CheckCircle
+  CheckCircle,
+  Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi, usersApi } from '@/lib/api';
@@ -48,7 +49,14 @@ export default function DispatcherPage() {
 
   // Check authentication and role
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'dispatcher')) {
+    if (!isLoading && !user) {
+      toast.error('请先登录');
+      router.push('/login');
+      return;
+    }
+    
+    // Allow access for dispatcher role or super admin (permission inheritance)
+    if (!isLoading && user && user.role !== 'dispatcher' && user.role !== 'super_admin') {
       toast.error('无权访问此页面');
       router.push('/login');
     }
@@ -56,7 +64,7 @@ export default function DispatcherPage() {
 
   // Load data
   useEffect(() => {
-    if (user?.role === 'dispatcher') {
+    if (user && (user.role === 'dispatcher' || user.role === 'super_admin')) {
       loadTasks();
       loadPlayers();
       loadPlayerDetails();
@@ -65,7 +73,7 @@ export default function DispatcherPage() {
 
   // 定时更新任务进度
   useEffect(() => {
-    if (user?.role !== 'dispatcher') return;
+    if (!user || (user.role !== 'dispatcher' && user.role !== 'super_admin')) return;
 
     const progressUpdateInterval = setInterval(async () => {
       // 只在有进行中任务时才更新
@@ -87,7 +95,7 @@ export default function DispatcherPage() {
 
   // Socket 事件监听
   useEffect(() => {
-    if (user?.role === 'dispatcher') {
+    if (user && (user.role === 'dispatcher' || user.role === 'super_admin')) {
       const socket = socketManager.connect();
       console.log('[前端] Socket连接状态:', socket?.connected);
       if (socket) {
@@ -331,7 +339,7 @@ export default function DispatcherPage() {
     );
   }
 
-  if (!user || user.role !== 'dispatcher') {
+  if (!user || (user.role !== 'dispatcher' && user.role !== 'super_admin')) {
     return null;
   }
 
@@ -345,6 +353,17 @@ export default function DispatcherPage() {
             <p className="text-gray-600">管理和分配游戏陪玩任务</p>
           </div>
           <div className="flex space-x-3">
+            {/* Super Admin return button */}
+            {user.role === 'super_admin' && (
+              <Button
+                variant="outline"
+                onClick={() => router.push('/super-admin')}
+                className="border-purple-200 text-purple-700 hover:bg-purple-50"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                返回管理控制台
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setShowExtensionRequests(!showExtensionRequests)}

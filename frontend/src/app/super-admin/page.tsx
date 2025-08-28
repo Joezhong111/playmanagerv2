@@ -22,7 +22,8 @@ import {
   RefreshCw,
   UserCheck,
   UserX,
-  Clock
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { superAdminApi } from '@/lib/api';
@@ -87,6 +88,10 @@ export default function SuperAdminPage() {
 
   const handleSearch = () => {
     loadUsers();
+  };
+
+  const handleGoToDispatcher = () => {
+    router.push('/dispatcher');
   };
 
   const getRoleColor = (role: string) => {
@@ -158,7 +163,7 @@ export default function SuperAdminPage() {
             <h1 className="text-3xl font-bold text-gray-900">超级管理员控制台</h1>
             <p className="text-gray-600">系统管理和数据统计中心</p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <Badge 
               variant="secondary" 
               className="bg-purple-100 text-purple-800 px-3 py-1"
@@ -166,6 +171,13 @@ export default function SuperAdminPage() {
               <Shield className="w-4 h-4 mr-1" />
               超级管理员
             </Badge>
+            <Button
+              onClick={handleGoToDispatcher}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <ArrowRight className="w-4 h-4 mr-2" />
+              前往派单工作台
+            </Button>
           </div>
         </div>
 

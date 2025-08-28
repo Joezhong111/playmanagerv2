@@ -48,6 +48,8 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
         return '陪玩员';
       case 'admin':
         return '管理员';
+      case 'super_admin':
+        return '超级管理员';
       default:
         return '用户';
     }
@@ -60,6 +62,8 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
       case 'player':
         return 'bg-green-100 text-green-800';
       case 'admin':
+        return 'bg-purple-100 text-purple-800';
+      case 'super_admin':
         return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -194,7 +198,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                   </div>
                 </div>
                 <div className="px-3 py-2 space-y-2">
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2">
                     <Badge className={getRoleBadgeColor(user.role)}>
                       {getRoleLabel(user.role)}
                     </Badge>

@@ -64,7 +64,9 @@ export function requireSuperAdmin(req, res, next) {
 // 多角色验证中间件
 export function requireRoles(roles) {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    // Check both actual role and current role (for role switching)
+    const userRole = req.user.currentRole || req.user.role;
+    if (!roles.includes(userRole)) {
       return res.status(403).json({ 
         success: false, 
         message: 'Insufficient permissions' 
@@ -72,6 +74,18 @@ export function requireRoles(roles) {
     }
     next();
   };
+}
+
+// 超级管理员或派单员角色验证中间件
+export function requireSuperAdminOrDispatcher(req, res, next) {
+  const userRole = req.user.currentRole || req.user.role;
+  if (userRole !== 'super_admin' && userRole !== 'dispatcher') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Super admin or dispatcher permissions required' 
+    });
+  }
+  next();
 }
 
 // 用户存在性验证中间件

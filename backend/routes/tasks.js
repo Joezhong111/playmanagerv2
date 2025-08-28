@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { body } from 'express-validator';
-import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { authenticateToken, requireRole, requireSuperAdminOrDispatcher } from '../middleware/auth.js';
 import { taskController } from '../controllers/task.controller.js';
 import { extensionController } from '../controllers/extension.controller.js';
 
@@ -10,7 +10,7 @@ const router = express.Router();
 // Middleware chain for creating a task
 const createTaskChain = [
   authenticateToken,
-  requireRole('dispatcher'),
+  requireSuperAdminOrDispatcher,
   body('customer_name').trim().isLength({ min: 1, max: 100 }).withMessage('Customer name is required').escape(),
   body('customer_contact').trim().isLength({ min: 1, max: 50 }).withMessage('Customer contact is required').escape(),
   body('game_name').trim().isLength({ min: 1, max: 100 }).withMessage('Game name is required').escape(),
@@ -23,7 +23,7 @@ const createTaskChain = [
 
 const updateTaskChain = [
   authenticateToken,
-  requireRole('dispatcher'),
+  requireSuperAdminOrDispatcher,
   body('customer_name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Customer name is required').escape(),
   body('customer_contact').optional().trim().isLength({ min: 1, max: 50 }).withMessage('Customer contact is required').escape(),
   body('game_name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Game name is required').escape(),
@@ -64,7 +64,7 @@ router.put('/:id/resume', authenticateToken, requireRole('player'), taskControll
 router.put('/:id', updateTaskChain, taskController.updateTask);
 
 // 任务重新指派路由
-router.put('/:id/reassign', authenticateToken, requireRole('dispatcher'), taskController.reassignTask);
+router.put('/:id/reassign', authenticateToken, requireSuperAdminOrDispatcher, taskController.reassignTask);
 
 // 时间延长相关路由
 const extensionRequestChain = [
@@ -76,14 +76,14 @@ const extensionRequestChain = [
 
 const reviewExtensionChain = [
   authenticateToken,
-  requireRole('dispatcher'),
+  requireSuperAdminOrDispatcher,
   body('status').isIn(['approved', 'rejected']).withMessage('Status must be approved or rejected'),
   body('review_reason').optional().trim().isLength({ max: 500 }).escape()
 ];
 
 const extendDurationChain = [
   authenticateToken,
-  requireRole('dispatcher'),
+  requireSuperAdminOrDispatcher,
   body('additional_minutes').isInt({ min: 5, max: 480 }).withMessage('Additional minutes must be between 5 and 480 minutes'),
   body('reason').optional().trim().isLength({ max: 500 }).escape()
 ];
