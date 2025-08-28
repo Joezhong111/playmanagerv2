@@ -197,3 +197,8 @@ export interface ExtendTaskDurationRequest {
   additional_minutes: number;
   reason?: string;
 }
+
+export interface CompleteTaskResponse {
+  completedTask: Task;
+  nextTask?: Task | null;
+}

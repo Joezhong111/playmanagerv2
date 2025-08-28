@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Users, 
   BarChart3, 
@@ -23,7 +27,10 @@ import {
   UserCheck,
   UserX,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Edit,
+  Trash2,
+  KeyRound
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { superAdminApi } from '@/lib/api';
@@ -39,6 +46,24 @@ export default function SuperAdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('users');
+  
+  // User management modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // Form states
+  const [userForm, setUserForm] = useState({
+    username: '',
+    password: '',
+    role: 'player',
+    status: 'idle'
+  });
+  
+  const [newPassword, setNewPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check authentication and role
   useEffect(() => {
@@ -92,6 +117,169 @@ export default function SuperAdminPage() {
 
   const handleGoToDispatcher = () => {
     router.push('/dispatcher');
+  };
+
+  // User management handlers
+  const handleCreateUser = async () => {
+    // Form validation
+    if (!userForm.username.trim()) {
+      toast.error('请填写用户名');
+      return;
+    }
+    
+    if (userForm.username.length < 3 || userForm.username.length > 20) {
+      toast.error('用户名长度必须在3-20个字符之间');
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(userForm.username)) {
+      toast.error('用户名只能包含字母、数字和下划线');
+      return;
+    }
+    
+    if (!userForm.password.trim()) {
+      toast.error('请填写密码');
+      return;
+    }
+    
+    if (userForm.password.length < 6) {
+      toast.error('密码长度不能少于6个字符');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await superAdminApi.createUser({
+        username: userForm.username,
+        password: userForm.password,
+        role: userForm.role
+      });
+      
+      toast.success('用户创建成功');
+      setIsCreateModalOpen(false);
+      setUserForm({ username: '', password: '', role: 'player', status: 'idle' });
+      loadUsers(); // 刷新用户列表
+    } catch (error: any) {
+      console.error('Create user error:', error);
+      toast.error(error.response?.data?.message || '创建用户失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditUser = async () => {
+    if (!selectedUser) return;
+
+    // Form validation
+    if (!userForm.username.trim()) {
+      toast.error('请填写用户名');
+      return;
+    }
+    
+    if (userForm.username.length < 3 || userForm.username.length > 20) {
+      toast.error('用户名长度必须在3-20个字符之间');
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(userForm.username)) {
+      toast.error('用户名只能包含字母、数字和下划线');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await superAdminApi.updateUser(selectedUser.id, {
+        username: userForm.username,
+        role: userForm.role,
+        status: userForm.status
+      });
+      
+      toast.success('用户更新成功');
+      setIsEditModalOpen(false);
+      setSelectedUser(null);
+      loadUsers(); // 刷新用户列表
+    } catch (error: any) {
+      console.error('Update user error:', error);
+      toast.error(error.response?.data?.message || '更新用户失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    setIsSubmitting(true);
+    try {
+      await superAdminApi.deleteUser(selectedUser.id);
+      
+      toast.success('用户删除成功');
+      setIsDeleteModalOpen(false);
+      setSelectedUser(null);
+      loadUsers(); // 刷新用户列表
+    } catch (error: any) {
+      console.error('Delete user error:', error);
+      toast.error(error.response?.data?.message || '删除用户失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUser) return;
+    
+    // Form validation
+    if (!newPassword.trim()) {
+      toast.error('请输入新密码');
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast.error('新密码长度不能少于6个字符');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await superAdminApi.resetPassword(selectedUser.id, newPassword);
+      
+      toast.success('密码重置成功');
+      setIsResetPasswordModalOpen(false);
+      setSelectedUser(null);
+      setNewPassword('');
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      toast.error(error.response?.data?.message || '密码重置失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openCreateModal = () => {
+    setUserForm({ username: '', password: '', role: 'player', status: 'idle' });
+    setIsCreateModalOpen(true);
+  };
+
+  const openEditModal = (user: User) => {
+    setSelectedUser(user);
+    setUserForm({
+      username: user.username,
+      password: '',
+      role: user.role,
+      status: user.status
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const openDeleteModal = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const openResetPasswordModal = (user: User) => {
+    setSelectedUser(user);
+    setNewPassword('');
+    setIsResetPasswordModalOpen(true);
   };
 
   const getRoleColor = (role: string) => {
@@ -288,7 +476,7 @@ export default function SuperAdminPage() {
                     <RefreshCw className="w-4 h-4 mr-2" />
                     刷新
                   </Button>
-                  <Button>
+                  <Button onClick={openCreateModal}>
                     <Plus className="w-4 h-4 mr-2" />
                     添加用户
                   </Button>
@@ -356,16 +544,31 @@ export default function SuperAdminPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div className="flex space-x-2">
-                                  <Button variant="outline" size="sm">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => openEditModal(user)}
+                                  >
+                                    <Edit className="w-3 h-3 mr-1" />
                                     编辑
                                   </Button>
                                   {user.role !== 'super_admin' && (
-                                    <Button variant="outline" size="sm">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => openResetPasswordModal(user)}
+                                    >
+                                      <KeyRound className="w-3 h-3 mr-1" />
                                       重置密码
                                     </Button>
                                   )}
                                   {user.role !== 'super_admin' && (
-                                    <Button variant="destructive" size="sm">
+                                    <Button 
+                                      variant="destructive" 
+                                      size="sm"
+                                      onClick={() => openDeleteModal(user)}
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-1" />
                                       删除
                                     </Button>
                                   )}
@@ -430,6 +633,206 @@ export default function SuperAdminPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Create User Modal */}
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>创建新用户</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="create-username">用户名</Label>
+                <Input
+                  id="create-username"
+                  type="text"
+                  placeholder="输入用户名"
+                  value={userForm.username}
+                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create-password">密码</Label>
+                <Input
+                  id="create-password"
+                  type="password"
+                  placeholder="输入密码"
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create-role">用户角色</Label>
+                <Select 
+                  value={userForm.role} 
+                  onValueChange={(value) => setUserForm({ ...userForm, role: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择角色" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="player">陪玩员</SelectItem>
+                    <SelectItem value="dispatcher">派单员</SelectItem>
+                    <SelectItem value="super_admin">超级管理员</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsCreateModalOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  取消
+                </Button>
+                <Button 
+                  onClick={handleCreateUser}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? '创建中...' : '创建用户'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Modal */}
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>编辑用户信息</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-username">用户名</Label>
+                <Input
+                  id="edit-username"
+                  type="text"
+                  placeholder="输入用户名"
+                  value={userForm.username}
+                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-role">用户角色</Label>
+                <Select 
+                  value={userForm.role} 
+                  onValueChange={(value) => setUserForm({ ...userForm, role: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择角色" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="player">陪玩员</SelectItem>
+                    <SelectItem value="dispatcher">派单员</SelectItem>
+                    <SelectItem value="super_admin">超级管理员</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-status">用户状态</Label>
+                <Select 
+                  value={userForm.status} 
+                  onValueChange={(value) => setUserForm({ ...userForm, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择状态" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="idle">空闲</SelectItem>
+                    <SelectItem value="busy">忙碌</SelectItem>
+                    <SelectItem value="offline">离线</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  取消
+                </Button>
+                <Button 
+                  onClick={handleEditUser}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? '更新中...' : '更新用户'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete User Modal */}
+        <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>确认删除用户</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                确定要删除用户 <span className="font-medium text-gray-900">{selectedUser?.username}</span> 吗？
+                此操作不可撤销。
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  取消
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={handleDeleteUser}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? '删除中...' : '确认删除'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reset Password Modal */}
+        <Dialog open={isResetPasswordModalOpen} onOpenChange={setIsResetPasswordModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>重置用户密码</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                为用户 <span className="font-medium text-gray-900">{selectedUser?.username}</span> 重置密码
+              </p>
+              <div>
+                <Label htmlFor="new-password">新密码</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="输入新密码"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsResetPasswordModalOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  取消
+                </Button>
+                <Button 
+                  onClick={handleResetPassword}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? '重置中...' : '重置密码'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

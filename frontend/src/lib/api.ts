@@ -189,8 +189,8 @@ export const tasksApi = {
     return handleResponse(response);
   },
 
-  async complete(id: number): Promise<Task> {
-    const response = await api.put<ApiResponse<Task>>(`/tasks/${id}/complete`);
+  async complete(id: number): Promise<CompleteTaskResponse> {
+    const response = await api.put<ApiResponse<CompleteTaskResponse>>(`/tasks/${id}/complete`);
     return handleResponse(response);
   },
 
@@ -344,8 +344,8 @@ export const superAdminApi = {
     await api.put('/super-admin/users/batch', data);
   },
 
-  async resetPassword(id: number): Promise<{ message: string }> {
-    const response = await api.post<ApiResponse<{ message: string }>>(`/super-admin/users/${id}/reset-password`);
+  async resetPassword(id: number, newPassword: string): Promise<{ message: string }> {
+    const response = await api.post<ApiResponse<{ message: string }>>(`/super-admin/users/${id}/reset-password`, { newPassword });
     return handleResponse(response);
   },
 

@@ -151,7 +151,7 @@ export default function CreateTaskPage() {
     );
   }
 
-  if (!user || user.role !== 'dispatcher') {
+  if (!user || (user.role !== 'dispatcher' && user.role !== 'super_admin')) {
     return null;
   }
 

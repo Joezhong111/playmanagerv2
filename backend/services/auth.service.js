@@ -35,7 +35,12 @@ class AuthService {
 
     // 更新用户状态为在线（如果是陪玩员）
     if (user.role === 'player') {
+      console.log(`[Login] 用户 ${user.username} 登录，强制重置状态为 idle (原状态: ${user.status})`);
       await userRepository.updateStatus(user.id, 'idle');
+      // 重新获取用户信息以确保返回最新状态
+      const updatedUser = await userRepository.findById(user.id);
+      delete updatedUser.password;
+      return { token, user: updatedUser };
     }
 
     // Don't send password back

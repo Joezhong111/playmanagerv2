@@ -33,6 +33,21 @@ class UserController {
     const { status } = req.body;
     const userId = req.user.userId;
     await userService.updateUserStatus(userId, status);
+    
+    // 获取用户信息用于广播
+    const user = await userService.getUserById(userId);
+    
+    // 通过Socket.IO广播状态变更给所有派单员
+    if (req.io) {
+      console.log(`[API] 用户 ${user.username} 状态更新为 ${status}，广播给派单员`);
+      req.io.to('dispatchers').emit('player_status_changed', { 
+        userId: user.id, 
+        username: user.username, 
+        status: status,
+        isOnline: true // API调用说明用户在线
+      });
+    }
+    
     res.status(200).json({ 
       success: true, 
       message: 'Status updated successfully', 
@@ -70,6 +85,17 @@ class UserController {
     const { id } = req.params;
     await userService.deleteUser(id);
     res.status(200).json({ success: true, message: 'User deleted successfully' });
+  });
+
+  // 重置用户状态（管理员功能）
+  resetUserStatus = asyncHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const result = await userService.validateAndResetUserStatus(id);
+    res.status(200).json({ 
+      success: true, 
+      message: 'User status validated and reset if needed', 
+      data: result 
+    });
   });
 }
 

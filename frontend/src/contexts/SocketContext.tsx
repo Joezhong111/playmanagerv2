@@ -132,29 +132,44 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           }
         });
 
-        // User status events
-        socket.on('user_status_changed', (data: { userId: number; status: string; username: string }) => {
-          console.log('User status changed:', data);
-          if (user.role === 'dispatcher') {
-            const statusText = data.status === 'idle' ? '空闲' : '忙碌';
-            toast.info(`${data.username} 状态更新为${statusText}`);
+        // User status events - 统一处理用户状态变更
+        socket.on('player_status_changed', (data: { userId: number; status: string; username: string; isOnline?: boolean }) => {
+          console.log('Player status changed:', data);
+          
+          // 更新在线用户列表
+          if (data.isOnline === true) {
+            setOnlineUsers(prev => {
+              const exists = prev.find(u => u.id === data.userId);
+              if (!exists) {
+                return [...prev, { id: data.userId, username: data.username, status: data.status } as User];
+              } else {
+                return prev.map(u => u.id === data.userId ? { ...u, status: data.status } : u);
+              }
+            });
+          } else if (data.isOnline === false) {
+            setOnlineUsers(prev => prev.filter(u => u.id !== data.userId));
+          }
+          
+          // 显示状态变更通知（只对派单员显示）
+          if (user.role === 'dispatcher' || user.role === 'super_admin') {
+            if (data.isOnline === true) {
+              const statusText = data.status === 'idle' ? '空闲' : data.status === 'busy' ? '忙碌' : '离线';
+              toast.info(`${data.username} 已上线 (${statusText})`);
+            } else if (data.isOnline === false) {
+              toast.info(`${data.username} 已离线`);
+            } else {
+              // 只是状态变更，不是上线/离线
+              const statusText = data.status === 'idle' ? '空闲' : data.status === 'busy' ? '忙碌' : '离线';
+              toast.info(`${data.username} 状态更新为${statusText}`);
+            }
           }
         });
 
-        socket.on('user_online', (data: { userId: number; username: string }) => {
-          console.log('User online:', data);
-          setOnlineUsers(prev => {
-            const exists = prev.find(u => u.id === data.userId);
-            if (!exists) {
-              return [...prev, { id: data.userId, username: data.username } as User];
-            }
-            return prev;
-          });
-        });
-
-        socket.on('user_offline', (data: { userId: number; username: string }) => {
-          console.log('User offline:', data);
-          setOnlineUsers(prev => prev.filter(u => u.id !== data.userId));
+        // 兼容旧的事件名称（逐步移除）
+        socket.on('user_status_changed', (data: { userId: number; status: string; username: string }) => {
+          console.log('User status changed (legacy):', data);
+          // 转发到新的事件处理器
+          socket.emit('player_status_changed', { ...data });
         });
 
         // General notifications
@@ -186,9 +201,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           socket.off('task_started');
           socket.off('task_completed');
           socket.off('task_cancelled');
+          socket.off('player_status_changed');
           socket.off('user_status_changed');
-          socket.off('user_online');
-          socket.off('user_offline');
           socket.off('notification');
           socketManager.disconnect();
         };

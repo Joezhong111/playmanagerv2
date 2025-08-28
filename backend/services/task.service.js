@@ -264,8 +264,10 @@ class TaskService {
         throw new NotFoundError('Task');
       }
 
-      // Only dispatcher or assigned player can cancel
-      if (task.dispatcher_id !== cancellingUser.userId && task.player_id !== cancellingUser.userId) {
+      // Dispatcher, assigned player, or super admin can cancel
+      if (task.dispatcher_id !== cancellingUser.userId && 
+          task.player_id !== cancellingUser.userId && 
+          cancellingUser.role !== 'super_admin') {
         throw new ForbiddenError('You do not have permission to cancel this task');
       }
 

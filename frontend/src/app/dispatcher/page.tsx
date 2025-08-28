@@ -114,19 +114,47 @@ export default function DispatcherPage() {
         };
 
         // 监听陪玩员状态变更
-        const handlePlayerStatusChange = (data: { userId: number; username: string; status: string }) => {
+        const handlePlayerStatusChange = (data: { userId: number; username: string; status: string; isOnline?: boolean }) => {
           console.log('[前端] 收到陪玩员状态变更事件:', data);
+          
           setPlayers(prevPlayers => {
-            const updated = prevPlayers.map(p => p.id === data.userId ? { ...p, status: data.status } : p);
+            const updated = prevPlayers.map(p => {
+              if (p.id === data.userId) {
+                // 如果用户离线且不是忙碌状态，显示为离线；否则保持原状态
+                const newStatus = data.isOnline === false && data.status !== 'busy' ? 'offline' : data.status;
+                return { ...p, status: newStatus as any };
+              }
+              return p;
+            });
             console.log('[前端] 更新后的陪玩员列表:', updated);
             return updated;
           });
           
           // 同时更新陪玩员详细信息
           setPlayerDetails(prevDetails => {
-            const updated = prevDetails.map(p => p.id === data.userId ? { ...p, status: data.status } : p);
+            const updated = prevDetails.map(p => {
+              if (p.id === data.userId) {
+                // 如果用户离线且不是忙碌状态，显示为离线；否则保持原状态
+                const newStatus = data.isOnline === false && data.status !== 'busy' ? 'offline' : data.status;
+                return { ...p, status: newStatus as any };
+              }
+              return p;
+            });
             return updated;
           });
+          
+          // 显示状态变更通知
+          if (data.isOnline === false) {
+            const statusText = data.status === 'busy' ? '忙碌中' : '离线';
+            toast.info(`${data.username} 已离线 (${statusText})`);
+          } else if (data.isOnline === true) {
+            const statusText = data.status === 'idle' ? '空闲' : data.status === 'busy' ? '忙碌' : '离线';
+            toast.info(`${data.username} 已上线，状态：${statusText}`);
+          } else {
+            // 纯状态变更，没有在线状态变化
+            const statusText = data.status === 'idle' ? '空闲' : data.status === 'busy' ? '忙碌' : '离线';
+            toast.info(`${data.username} 状态更新为：${statusText}`);
+          }
         };
 
         // 监听新任务

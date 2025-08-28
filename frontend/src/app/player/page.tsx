@@ -62,10 +62,18 @@ export default function PlayerPage() {
       const available = allTasks.filter(task => 
         task.status === 'pending' && (!task.player_id || task.player_id === null)
       );
+      
+      // 包含所有与陪玩员相关的任务状态
       const mine = allTasks.filter(task => 
-        task.player_id === user?.id && ['accepted', 'in_progress', 'paused'].includes(task.status)
+        task.player_id === user?.id && [
+          'accepted', 'in_progress', 'paused', 'overtime', 'queued'
+        ].includes(task.status)
       );
-      const current = mine.find(task => task.status === 'in_progress' || task.status === 'paused') || null;
+      
+      // 当前任务包括进行中、暂停和超时的任务
+      const current = mine.find(task => 
+        ['in_progress', 'paused', 'overtime'].includes(task.status)
+      ) || null;
 
       setAvailableTasks(available);
       setMyTasks(mine);
@@ -391,8 +399,8 @@ export default function PlayerPage() {
                     </Badge>
                   </div>
                   <div className="flex justify-center space-x-2">
-                    {/* 进入专注页面按钮 - 只在任务进行中或暂停时显示 */}
-                    {(currentTask.status === 'in_progress' || currentTask.status === 'paused') && (
+                    {/* 进入专注页面按钮 - 在任务进行中、暂停或超时时显示 */}
+                    {['in_progress', 'paused', 'overtime'].includes(currentTask.status) && (
                       <Button
                         variant="outline"
                         onClick={() => router.push(`/player/focus?taskId=${currentTask.id}`)}

@@ -29,5 +29,6 @@ router.get('/', requireAdmin, userController.getAllUsers); // Get all users (adm
 router.get('/:id', requireAdmin, userController.getUserById); // Get a single user by ID (admin only)
 router.put('/:id', requireAdmin, userController.updateUser); // Update a user (admin only)
 router.delete('/:id', requireAdmin, userController.deleteUser); // Delete a user (admin only)
+router.post('/:id/reset-status', requireAdmin, userController.resetUserStatus); // Reset user status (admin only)
 
 export default router;

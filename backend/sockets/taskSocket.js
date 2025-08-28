@@ -28,7 +28,7 @@ async function authenticateSocket(socket, next) {
 }
 
 export function handleSocketConnection(socket, io) {
-  authenticateSocket(socket, (error) => {
+  authenticateSocket(socket, async (error) => {
     if (error) {
       logger.error('Socket connection rejected', { error: error.message });
       socket.disconnect();
@@ -51,26 +51,77 @@ export function handleSocketConnection(socket, io) {
 
     socket.emit('connected', { message: 'Connection successful', user: user });
 
-    socket.to('dispatchers').emit('user_online', { ...user });
+    // 获取用户最新状态并验证
+    const currentUser = await userRepository.findById(user.id);
+    if (currentUser) {
+      console.log(`[Connect] 用户 ${user.username} 连接，当前状态: ${currentUser.status}`);
+      
+      // 检查用户是否有进行中的任务
+      const activeTask = await taskRepository.findActiveTaskByPlayer(user.id);
+      const shouldResetToIdle = currentUser.status === 'busy' && !activeTask;
+      const shouldResetToBusy = currentUser.status === 'idle' && activeTask;
+      
+      let finalStatus = currentUser.status;
+      let statusChanged = false;
+      
+      // 只在必要时重置状态
+      if (shouldResetToIdle) {
+        await userRepository.updateStatus(user.id, 'idle');
+        finalStatus = 'idle';
+        statusChanged = true;
+        console.log(`[Connect] 用户 ${user.username} 从 busy 重置为 idle (无活跃任务)`);
+      } else if (shouldResetToBusy) {
+        await userRepository.updateStatus(user.id, 'busy');
+        finalStatus = 'busy';
+        statusChanged = true;
+        console.log(`[Connect] 用户 ${user.username} 从 idle 重置为 busy (有活跃任务)`);
+      }
+      
+      // 只有状态发生变化时才广播事件，避免循环
+      if (statusChanged) {
+        socket.to('dispatchers').to(`player_${user.id}`).emit('player_status_changed', { 
+          userId: user.id, 
+          username: user.username, 
+          status: finalStatus,
+          isOnline: true
+        });
+        console.log(`[Connect] 广播状态变更事件: ${user.username} -> ${finalStatus}`);
+      }
+    }
 
     handleTaskEvents(socket, io);
 
     socket.on('disconnect', async () => {
       logger.info(`❌ User disconnected: ${user.username}`, { userId: user.id });
       try {
-        // 只有在用户是 idle 状态时才需要更新状态
-        // 如果用户正在执行任务(busy)，不应该改变状态
+        // 获取用户当前状态
         const currentUser = await userRepository.findById(user.id);
-        if (currentUser && currentUser.status === 'idle') {
-          console.log(`[Disconnect] 用户 ${user.id} 是空闲状态，保持 idle`);
-          // 对于空闲用户，断开连接时保持 idle 状态
-        } else if (currentUser && currentUser.status === 'busy') {
-          console.log(`[Disconnect] 用户 ${user.id} 正在执行任务，保持 busy 状态`);
-          // 对于忙碌用户，断开连接时不改变状态，因为他们可能在执行任务
+        
+        if (currentUser) {
+          console.log(`[Disconnect] 用户 ${user.username} 断开连接，当前状态: ${currentUser.status}`);
+          
+          // 检查用户是否有进行中的任务
+          const activeTask = await taskRepository.findActiveTaskByPlayer(user.id);
+          
+          // 只有空闲状态且没有活跃任务才更新为 offline
+          // 如果用户有活跃任务，保持原状态（busy）
+          if (currentUser.status === 'idle' && !activeTask) {
+            await userRepository.updateStatus(user.id, 'offline');
+            console.log(`[Disconnect] 用户 ${user.id} 从 idle 更新为 offline`);
+          } else {
+            console.log(`[Disconnect] 用户 ${user.id} 保持状态 ${currentUser.status} (活跃任务: ${!!activeTask})`);
+          }
+          
+          // 通知派单员和陪玩员用户离线，但保留原始状态信息
+          socket.to('dispatchers').to(`player_${user.id}`).emit('player_status_changed', { 
+            userId: user.id, 
+            username: user.username, 
+            status: currentUser.status, // 保留原始状态
+            isOnline: false
+          });
         }
         
         connectedUsers.delete(user.id);
-        socket.to('dispatchers').emit('user_offline', { userId: user.id, username: user.username, status: currentUser?.status || 'idle' });
       } catch (err) {
         logger.error('Error handling disconnect', { error: err, userId: user.id });
       }
@@ -90,17 +141,16 @@ function handleTaskEvents(socket, io) {
         io.to('dispatchers').to(`player_${task.player_id}`).emit(eventName, task);
         logger.info(`Broadcasted [${eventName}] for task ${taskId}`);
         
-        // 同步广播陪玩员状态变更
+        // 同步广播陪玩员状态变更（只在必要时）
         if (task.player_id) {
-          const player = await userRepository.findById(task.player_id);
-          if (player) {
-            io.to('dispatchers').emit('player_status_changed', { 
-              userId: player.id, 
-              username: player.username, 
-              status: player.status 
-            });
-            logger.info(`Broadcasted player status change for user ${player.id}: ${player.status}`);
-          }
+          // 任务状态变更时，陪玩员状态通常已经由业务逻辑正确设置
+          // 这里只广播，不进行额外的状态验证
+          io.to('dispatchers').to(`player_${task.player_id}`).emit('player_status_changed', { 
+            userId: task.player_id, 
+            username: task.player_name || `玩家${task.player_id}`, 
+            status: task.status === 'in_progress' || task.status === 'paused' || task.status === 'overtime' ? 'busy' : 'idle'
+          });
+          logger.info(`Broadcasted player status change for user ${task.player_id}: task ${task.status}`);
         }
       }
     } catch (error) {
@@ -158,7 +208,8 @@ function handleTaskEvents(socket, io) {
   });
 
   socket.on('status_changed', (data) => {
-    io.to('dispatchers').emit('player_status_changed', { userId: user.id, username: user.username, status: data.status });
+    // 发送给所有派单员和陪玩员自己
+    io.to('dispatchers').to(`player_${user.id}`).emit('player_status_changed', { userId: user.id, username: user.username, status: data.status });
   });
 
   socket.on('get_online_users', () => {
