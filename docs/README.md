@@ -10,13 +10,13 @@ This documentation library provides comprehensive technical documentation and us
 
 - **[项目概述 (Project Overview)](01-project-overview/README.md)** - 系统介绍和架构概览
 - **[开发指南 (Development Guide)](02-development-guide/development-guide.md)** - 环境搭建和开发流程
+- **[脚本工具 (Scripts & Utilities)](../scripts/README.md)** - 测试、数据库和实用工具脚本
 - **[API 接口文档 (API Documentation)](03-technical-docs/api/backend-api.md)** - 完整的 RESTful API 参考
 
 ### 📖 文档结构 (Documentation Structure)
 
 #### 01. 项目概览 (Project Overview)
 - [系统介绍 (System Overview)](01-project-overview/README.md) - 项目背景、目标和技术栈
-- [前端重构计划 (Frontend Refactor Plan)](01-project-overview/frontend-refactor-plan.md) - React 重构方案
 
 #### 02. 开发指南 (Development Guide)
 - [开发环境配置 (Development Setup)](02-development-guide/development-guide.md) - 环境搭建、开发流程和代码规范
@@ -36,11 +36,9 @@ This documentation library provides comprehensive technical documentation and us
 
 #### 04. 功能模块 (Feature Modules)
 - **核心功能**
-  - [音频设置指南 (Audio Setup Guide)](04-feature-modules/core/AUDIO_SETUP_GUIDE.md) - 提示音配置
   - [用户管理 (User Management)](04-feature-modules/core/user-management.md) - 用户系统说明
   - [任务管理 (Task Management)](04-feature-modules/core/task-management.md) - 任务系统说明
 - **扩展功能**
-  - [声音提醒和加钟 (Sound Reminders & Extensions)](04-feature-modules/extensions/SOUND_REMINDER_AND_EXTENSION_FEATURES.md) - 时间提醒功能
   - [实时通信 (Real-time Communication)](04-feature-modules/extensions/realtime-communication.md) - Socket.IO 功能
   - [统计分析 (Statistics & Analytics)](04-feature-modules/extensions/statistics.md) - 数据统计功能
 
@@ -65,26 +63,30 @@ This documentation library provides comprehensive technical documentation and us
 
 ### 🔄 版本信息 (Version Information)
 
-- **当前版本**: v2.1.0
+- **当前版本**: v2.2.0
 - **最后更新**: 2025-08-28
 - **更新日志**: [CHANGELOG.md](CHANGELOG.md)
+- **脚本工具**: [scripts/README.md](../scripts/README.md)
 
 ### 🎯 面向读者 (Target Audience)
 
 #### 🛠️ 开发人员 (Developers)
-- 快速上手：**项目概述** → **开发指南** → **API 文档**
+- 快速上手：**项目概述** → **开发指南** → **脚本工具** → **API 文档**
 - 深入开发：**技术文档** → **功能模块** → **维护文档**
+- 开发工具：**脚本工具** 用于测试、数据库管理和系统维护
 
 #### 📋 产品经理 (Product Managers)
 - 功能了解：**项目概述** → **产品文档** → **功能模块**
 
 #### 🧪 测试人员 (Testers)
 - 测试准备：**项目概述** → **开发指南** → **产品文档**
-- 测试执行：**技术文档** → **维护文档**
+- 测试执行：**脚本工具** → **技术文档** → **维护文档**
+- 测试工具：**脚本工具** 包含完整的测试套件和诊断工具
 
 #### 🔧 运维人员 (Operations)
-- 系统部署：**项目概述** → **维护文档**
-- 日常维护：**技术文档** → **维护文档**
+- 系统部署：**项目概述** → **脚本工具** → **维护文档**
+- 日常维护：**技术文档** → **脚本工具** → **维护文档**
+- 运维工具：**脚本工具** 提供数据库管理、系统初始化和监控工具
 
 ### 📞 联系方式 (Contact)
 
@@ -95,6 +97,6 @@ This documentation library provides comprehensive technical documentation and us
 
 ---
 
-**文档版本**: v2.1.0  
+**文档版本**: v2.2.0  
 **最后更新**: 2025-08-28  
 **维护团队**: PlayManagerV2 Development Team

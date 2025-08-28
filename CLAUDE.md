@@ -42,6 +42,10 @@ playmanagerv2/
 │   │   ├── lib/           # Utility libraries (API, socket, utils)
 │   │   └── types/         # TypeScript type definitions
 │   └── public/            # Static assets
+├── scripts/                # Development and maintenance scripts
+│   ├── test/              # Testing and diagnostic scripts
+│   ├── database/          # Database management scripts
+│   └── utils/             # Utility scripts
 └── docs/                  # Comprehensive project documentation
 ```
 
@@ -82,6 +86,22 @@ npm start
 
 # Linting
 npm run lint
+```
+
+### Scripts and Utilities
+```bash
+# Testing and diagnostics
+node scripts/test/check-player-tasks.js      # Check player task status
+node scripts/test/test-backend-api.js        # Test backend API endpoints
+node scripts/test/create-test-task.js         # Create test tasks
+
+# Database management
+node scripts/database/init-database.js       # Initialize database
+node scripts/database/migrate.js              # Run database migrations
+node scripts/utils/activate-super-admin.js    # Activate super admin account
+
+# System utilities
+node scripts/utils/reset-user-status.js       # Reset user status
 ```
 
 ## Key Features
