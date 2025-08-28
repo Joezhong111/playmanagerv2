@@ -7,6 +7,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Clock, 
   DollarSign,
@@ -18,10 +19,14 @@ import {
   Gamepad2,
   Timer,
   Star,
-  TrendingUp
+  TrendingUp,
+  History,
+  ChevronDown,
+  ChevronUp,
+  Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { tasksApi, usersApi } from '@/lib/api';
+import { tasksApi, usersApi, playerStatsApi } from '@/lib/api';
 import type { Task } from '@/types/api';
 
 export default function PlayerPage() {
@@ -34,6 +39,24 @@ export default function PlayerPage() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isTaskActionLoading, setIsTaskActionLoading] = useState(false);
+  
+  // Statistics state
+  const [stats, setStats] = useState<any>({
+    overview: null,
+    earnings: null
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  // Completed tasks history state
+  const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
+  const [showCompletedHistory, setShowCompletedHistory] = useState(true);
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
+  const [completedPagination, setCompletedPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
   // Check authentication and role
   useEffect(() => {
@@ -47,15 +70,19 @@ export default function PlayerPage() {
   useEffect(() => {
     if (user?.role === 'player') {
       loadTasks();
+      loadCompletedTasks(1, true);
     }
   }, [user]);
 
   const loadTasks = async () => {
     try {
       setIsLoadingTasks(true);
-      const [allTasks, queuedTasksData] = await Promise.all([
+      setIsLoadingStats(true);
+      
+      const [allTasks, queuedTasksData, dashboardStats] = await Promise.all([
         tasksApi.getAll(),
-        tasksApi.getQueuedTasks()
+        tasksApi.getQueuedTasks(),
+        playerStatsApi.getDashboardOverview()
       ]);
       
       // Filter tasks for player
@@ -79,11 +106,55 @@ export default function PlayerPage() {
       setMyTasks(mine);
       setQueuedTasks(queuedTasksData);
       setCurrentTask(current);
+      setStats({
+        overview: dashboardStats,
+        earnings: null
+      });
     } catch (error: any) {
       console.error('Error loading tasks:', error);
       toast.error('加载任务失败');
     } finally {
       setIsLoadingTasks(false);
+      setIsLoadingStats(false);
+    }
+  };
+
+  const loadCompletedTasks = async (page = 1, reset = false) => {
+    try {
+      setIsLoadingCompleted(true);
+      
+      const result = await playerStatsApi.getMyTasks({
+        status: 'completed',
+        page,
+        limit: parseInt(completedPagination.limit) || 10
+      });
+      
+      if (reset) {
+        setCompletedTasks(result.tasks || []);
+      } else {
+        setCompletedTasks(prev => [...prev, ...(result.tasks || [])]);
+      }
+      
+      setCompletedPagination(prev => ({
+        ...prev,
+        page,
+        total: result.pagination?.total || 0,
+        totalPages: result.pagination?.totalPages || 0
+      }));
+    } catch (error: any) {
+      console.error('Error loading completed tasks:', error);
+      toast.error('加载已完成任务失败');
+    } finally {
+      setIsLoadingCompleted(false);
+    }
+  };
+
+  const toggleCompletedHistory = () => {
+    const willShow = !showCompletedHistory;
+    setShowCompletedHistory(willShow);
+    
+    if (willShow && completedTasks.length === 0) {
+      loadCompletedTasks(1, true);
     }
   };
 
@@ -138,6 +209,11 @@ export default function PlayerPage() {
       }
       
       await loadTasks();
+      
+      // 如果历史记录是展开状态，也刷新已完成任务列表
+      if (showCompletedHistory) {
+        await loadCompletedTasks(1, true);
+      }
     } catch (error: any) {
       console.error('Error completing task:', error);
       toast.error(error.response?.data?.message || '完成任务失败');
@@ -288,6 +364,16 @@ export default function PlayerPage() {
     return `${minutes}分钟`;
   };
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -300,7 +386,10 @@ export default function PlayerPage() {
     return null;
   }
 
-  const completedTasksCount = myTasks.filter(task => task.status === 'completed').length;
+  const completedTasksCount = stats.overview?.taskStats?.completedTasks || 0;
+  const totalEarnings = stats.overview?.taskStats?.totalEarnings || 0;
+  const todayEarnings = stats.overview?.todayStats?.todayEarnings || 0;
+  const availableTasksCount = stats.overview?.availableTasks || availableTasks.length;
 
   return (
     <AppLayout title="陪玩员工作台">
@@ -348,6 +437,7 @@ export default function PlayerPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{myTasks.length}</div>
+              <p className="text-xs text-muted-foreground">当前活跃任务</p>
             </CardContent>
           </Card>
           <Card>
@@ -357,6 +447,7 @@ export default function PlayerPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{completedTasksCount}</div>
+              <p className="text-xs text-muted-foreground">历史完成任务</p>
             </CardContent>
           </Card>
           <Card>
@@ -365,7 +456,8 @@ export default function PlayerPage() {
               <Star className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{availableTasks.length}</div>
+              <div className="text-2xl font-bold text-blue-600">{availableTasksCount}</div>
+              <p className="text-xs text-muted-foreground">待接受任务</p>
             </CardContent>
           </Card>
           <Card>
@@ -374,7 +466,8 @@ export default function PlayerPage() {
               <TrendingUp className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">¥{calculateEarnings(myTasks)}</div>
+              <div className="text-2xl font-bold text-green-600">¥{totalEarnings}</div>
+              <p className="text-xs text-muted-foreground">今日 ¥{todayEarnings}</p>
             </CardContent>
           </Card>
         </div>
@@ -652,6 +745,142 @@ export default function PlayerPage() {
                 </div>
               )}
             </CardContent>
+          </Card>
+
+          {/* Completed Tasks History */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center">
+                    <History className="w-5 h-5 mr-2" />
+                    已完成任务历史记录
+                  </CardTitle>
+                  <CardDescription>
+                    查看您已完成的任务历史 {completedPagination.total > 0 && `(${completedPagination.total}个任务)`}
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={toggleCompletedHistory}
+                  className="flex items-center space-x-2"
+                >
+                  {showCompletedHistory ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      <span>隐藏历史</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      <span>查看历史</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            {showCompletedHistory && (
+              <CardContent>
+                {isLoadingCompleted && completedTasks.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : completedTasks.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <History className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>暂无已完成任务</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          <span className="text-sm font-medium text-green-800">已完成任务</span>
+                        </div>
+                        <div className="text-2xl font-bold text-green-600 mt-1">
+                          {completedPagination.total}
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <DollarSign className="w-5 h-5 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-800">总收入</span>
+                        </div>
+                        <div className="text-2xl font-bold text-blue-600 mt-1">
+                          ¥{completedTasks.reduce((sum, task) => sum + task.price, 0)}
+                        </div>
+                      </div>
+                      <div className="bg-purple-50 p-4 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <TrendingUp className="w-5 h-5 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-800">平均单价</span>
+                        </div>
+                        <div className="text-2xl font-bold text-purple-600 mt-1">
+                          ¥{Math.round(completedTasks.reduce((sum, task) => sum + task.price, 0) / completedTasks.length)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Task List */}
+                    <div className="space-y-3">
+                      {completedTasks.map((task) => (
+                        <div key={task.id} className="p-4 border border-green-200 bg-green-50 rounded-lg">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h4 className="font-semibold text-green-800">{task.game_name}</h4>
+                              <p className="text-sm text-green-600">{task.game_mode}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge className="bg-green-100 text-green-800">
+                                已完成
+                              </Badge>
+                              <span className="text-sm text-gray-500">
+                                {formatDate(task.completed_at)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-sm flex items-center text-green-700">
+                                <User className="w-3 h-3 mr-1" />
+                                {task.customer_name}
+                              </span>
+                              <span className="text-sm flex items-center text-green-700">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {formatDuration(task.duration)}
+                              </span>
+                            </div>
+                            <span className="font-semibold text-green-600">¥{task.price}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Load More */}
+                    {completedPagination.page < completedPagination.totalPages && (
+                      <div className="text-center pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => loadCompletedTasks(completedPagination.page + 1)}
+                          disabled={isLoadingCompleted}
+                        >
+                          {isLoadingCompleted ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 mr-2"></div>
+                              加载中...
+                            </>
+                          ) : (
+                            '加载更多'
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            )}
           </Card>
         </div>
       </div>

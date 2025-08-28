@@ -14,7 +14,7 @@ class PlayerStatsService {
           COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as currentTasks,
           SUM(CASE WHEN status = 'completed' THEN price ELSE 0 END) as totalEarnings,
           AVG(CASE WHEN status = 'completed' THEN TIMESTAMPDIFF(MINUTE, started_at, completed_at) ELSE NULL END) as avgDuration,
-          AVG(CASE WHEN status = 'completed' THEN completion_rate ELSE NULL END) as avgRating
+          0 as avgRating
         FROM tasks 
         WHERE player_id = ?
       `, [playerId]);
@@ -61,11 +61,92 @@ class PlayerStatsService {
     }
   }
 
+  // 获取陪玩员详细统计信息
+  async getPlayerDetailedStats(playerId, period = 'month') {
+    try {
+      let dateFilter = '';
+      if (period === 'today') {
+        dateFilter = 'AND DATE(t.created_at) = CURDATE()';
+      } else if (period === 'week') {
+        dateFilter = 'AND t.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
+      } else if (period === 'month') {
+        dateFilter = 'AND MONTH(t.created_at) = MONTH(CURDATE()) AND YEAR(t.created_at) = YEAR(CURDATE())';
+      }
+
+      const [stats] = await pool.execute(`
+        SELECT 
+          COUNT(*) as totalTasks,
+          COUNT(CASE WHEN t.status = 'completed' THEN 1 END) as completedTasks,
+          COUNT(CASE WHEN t.status = 'cancelled' THEN 1 END) as cancelledTasks,
+          COUNT(CASE WHEN t.status = 'in_progress' THEN 1 END) as inProgressTasks,
+          COUNT(CASE WHEN t.status = 'paused' THEN 1 END) as pausedTasks,
+          SUM(CASE WHEN t.status = 'completed' THEN t.price ELSE 0 END) as totalEarnings,
+          AVG(CASE WHEN t.status = 'completed' THEN t.price ELSE NULL END) as avgEarnings,
+          AVG(CASE WHEN t.status = 'completed' THEN TIMESTAMPDIFF(MINUTE, t.started_at, t.completed_at) ELSE NULL END) as avgDuration,
+          0 as avgRating,
+          0 as onTimeTasks
+        FROM tasks t
+        WHERE t.player_id = ? ${dateFilter}
+      `, [playerId]);
+
+      // 计算完成率
+      const totalTasks = stats[0].totalTasks || 1;
+      const completionRate = ((stats[0].completedTasks / totalTasks) * 100).toFixed(1);
+      const onTimeRate = stats[0].completedTasks > 0 ? ((stats[0].onTimeTasks / stats[0].completedTasks) * 100).toFixed(1) : 0;
+
+      return {
+        ...stats[0],
+        completionRate: parseFloat(completionRate),
+        onTimeRate: parseFloat(onTimeRate),
+        period
+      };
+    } catch (error) {
+      console.error('获取陪玩员详细统计失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取陪玩员收入历史
+  async getPlayerEarningsHistory(playerId, period = 'month') {
+    try {
+      let groupBy = '';
+      if (period === 'day') {
+        groupBy = 'DATE(t.created_at)';
+      } else if (period === 'week') {
+        groupBy = 'WEEK(t.created_at)';
+      } else if (period === 'month') {
+        groupBy = 'MONTH(t.created_at)';
+      }
+
+      const [earnings] = await pool.execute(`
+        SELECT 
+          ${groupBy} as period,
+          COUNT(*) as taskCount,
+          COUNT(CASE WHEN t.status = 'completed' THEN 1 END) as completedTasks,
+          SUM(CASE WHEN t.status = 'completed' THEN t.price ELSE 0 END) as earnings,
+          AVG(CASE WHEN t.status = 'completed' THEN t.price ELSE NULL END) as avgEarnings
+        FROM tasks t
+        WHERE t.player_id = ? AND t.status = 'completed'
+          AND t.created_at >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+        GROUP BY ${groupBy}
+        ORDER BY period DESC
+        LIMIT 30
+      `, [playerId]);
+
+      return earnings;
+    } catch (error) {
+      console.error('获取陪玩员收入历史失败:', error);
+      throw error;
+    }
+  }
+
   // 获取我的任务列表
   async getMyTasks(playerId, filters = {}) {
     try {
       const { status, page = 1, limit = 10 } = filters;
-      const offset = (page - 1) * limit;
+      const limitNum = parseInt(limit) || 10;
+      const pageNum = parseInt(page) || 1;
+      const offset = (pageNum - 1) * limitNum;
       
       let whereClause = 'WHERE t.player_id = ?';
       const params = [playerId];
@@ -76,6 +157,8 @@ class PlayerStatsService {
       }
       
       // 获取任务列表
+      // 使用字符串拼接而不是参数绑定来避免LIMIT参数问题
+      const limitClause = ` LIMIT ${limitNum} OFFSET ${offset}`;
       const [tasks] = await pool.execute(`
         SELECT 
           t.id,
@@ -88,7 +171,7 @@ class PlayerStatsService {
           t.accepted_at,
           t.started_at,
           t.completed_at,
-          t.expected_duration,
+          0 as expected_duration,
           CASE 
             WHEN t.status = 'in_progress' AND t.started_at IS NOT NULL 
             THEN TIMESTAMPDIFF(MINUTE, t.started_at, NOW())
@@ -106,8 +189,8 @@ class PlayerStatsService {
             ELSE 6
           END,
           t.created_at DESC
-        LIMIT ? OFFSET ?
-      `, [...params, limit, offset]);
+        ${limitClause}
+      `, params);
       
       // 获取总数
       const [countResult] = await pool.execute(`
@@ -120,9 +203,9 @@ class PlayerStatsService {
         tasks,
         pagination: {
           total: countResult[0].total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          totalPages: Math.ceil(countResult[0].total / limit)
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(countResult[0].total / limitNum)
         }
       };
     } catch (error) {
@@ -135,7 +218,9 @@ class PlayerStatsService {
   async getAvailableTasks(filters = {}) {
     try {
       const { gameType, minPrice, maxPrice, page = 1, limit = 10 } = filters;
-      const offset = (page - 1) * limit;
+      const limitNum = parseInt(limit) || 10;
+      const pageNum = parseInt(page) || 1;
+      const offset = (pageNum - 1) * limitNum;
       
       let whereClause = 'WHERE t.status = "pending" AND t.player_id IS NULL';
       const params = [];
@@ -172,8 +257,8 @@ class PlayerStatsService {
         ${whereClause}
         GROUP BY t.id, t.customer_name, t.game_name, t.price, t.duration, t.created_at, u.username
         ORDER BY t.created_at ASC, t.price DESC
-        LIMIT ? OFFSET ?
-      `, [...params, limit, offset]);
+        LIMIT ${limitNum} OFFSET ${offset}
+      `, params);
       
       // 获取总数
       const [countResult] = await pool.execute(`
@@ -186,9 +271,9 @@ class PlayerStatsService {
         tasks,
         pagination: {
           total: countResult[0].total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          totalPages: Math.ceil(countResult[0].total / limit)
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(countResult[0].total / limitNum)
         }
       };
     } catch (error) {
@@ -226,7 +311,7 @@ class PlayerStatsService {
           SUM(t.price) as totalEarnings,
           AVG(t.price) as avgEarningsPerTask,
           AVG(TIMESTAMPDIFF(MINUTE, t.started_at, t.completed_at)) as avgDuration,
-          AVG(t.completion_rate) as avgRating,
+          0 as avgRating,
           SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, t.started_at, t.completed_at) <= t.duration THEN 1 END) as onTimeTasks,
           (SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, t.started_at, t.completed_at) <= t.duration THEN 1 END) / COUNT(*)) * 100 as onTimeRate
         FROM tasks t
@@ -291,14 +376,14 @@ class PlayerStatsService {
       // 评分统计
       const [ratingStats] = await pool.execute(`
         SELECT 
-          AVG(completion_rate) as avgRating,
+          0 as avgRating,
           COUNT(*) as ratedTasks,
-          COUNT(CASE WHEN completion_rate >= 4.5 THEN 1 END) as excellentTasks,
-          COUNT(CASE WHEN completion_rate >= 4.0 AND completion_rate < 4.5 THEN 1 END) as goodTasks,
-          COUNT(CASE WHEN completion_rate >= 3.5 AND completion_rate < 4.0 THEN 1 END) as averageTasks,
-          COUNT(CASE WHEN completion_rate < 3.5 THEN 1 END) as poorTasks
+          0 as excellentTasks,
+          0 as goodTasks,
+          0 as averageTasks,
+          0 as poorTasks
         FROM tasks 
-        WHERE player_id = ? AND status = 'completed' AND completion_rate IS NOT NULL
+        WHERE player_id = ? AND status = 'completed'
       `, [playerId]);
       
       // 时效统计
@@ -350,7 +435,7 @@ class PlayerStatsService {
           u.username,
           COUNT(t.id) as completedTasks,
           SUM(t.price) as totalEarnings,
-          AVG(t.completion_rate) as avgRating,
+          0 as avgRating,
           RANK() OVER (ORDER BY COUNT(CASE WHEN t.status = 'completed' THEN 1 END) DESC, SUM(CASE WHEN t.status = 'completed' THEN t.price ELSE 0 END) DESC) as rank
         FROM tasks t
         JOIN users u ON t.player_id = u.id
@@ -373,6 +458,7 @@ class PlayerStatsService {
   // 获取活动历史
   async getActivityHistory(playerId, limit = 20) {
     try {
+      const limitNum = parseInt(limit) || 20;
       const [activities] = await pool.execute(`
         SELECT 
           tl.action,
@@ -385,8 +471,8 @@ class PlayerStatsService {
         JOIN tasks t ON tl.task_id = t.id
         WHERE tl.user_id = ?
         ORDER BY tl.created_at DESC
-        LIMIT ?
-      `, [playerId, limit]);
+        LIMIT ${limitNum}
+      `, [playerId]);
       
       return activities;
     } catch (error) {

@@ -19,6 +19,12 @@ router.get('/tasks/available', playerStatsController.getAvailableTasks);
 // 收入统计
 router.get('/earnings', playerStatsController.getEarningsStats);
 
+// 详细统计信息
+router.get('/detailed', playerStatsController.getDetailedStats);
+
+// 收入历史
+router.get('/earnings/history', playerStatsController.getEarningsHistory);
+
 // 绩效统计
 router.get('/performance', playerStatsController.getPerformanceStats);
 

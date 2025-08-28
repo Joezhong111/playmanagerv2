@@ -101,6 +101,32 @@ class PlayerStatsController {
     });
   });
 
+  // 获取详细统计信息
+  getDetailedStats = asyncHandler(async (req, res, next) => {
+    const playerId = req.user.userId;
+    const { period = 'month' } = req.query;
+    
+    const stats = await playerStatsService.getPlayerDetailedStats(playerId, period);
+    
+    res.status(200).json({ 
+      success: true, 
+      data: stats 
+    });
+  });
+
+  // 获取收入历史
+  getEarningsHistory = asyncHandler(async (req, res, next) => {
+    const playerId = req.user.userId;
+    const { period = 'month' } = req.query;
+    
+    const history = await playerStatsService.getPlayerEarningsHistory(playerId, period);
+    
+    res.status(200).json({ 
+      success: true, 
+      data: history 
+    });
+  });
+
   // 获取完整统计报告
   getFullReport = asyncHandler(async (req, res, next) => {
     const playerId = req.user.userId;

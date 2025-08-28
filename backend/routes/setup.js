@@ -19,7 +19,7 @@ router.post('/init', async (req, res) => {
         id INT PRIMARY KEY AUTO_INCREMENT,
         username VARCHAR(50) UNIQUE NOT NULL COMMENT '用户名',
         password VARCHAR(255) NOT NULL COMMENT '密码哈希',
-        role ENUM('dispatcher', 'player') NOT NULL COMMENT '用户角色',
+        role ENUM('dispatcher', 'player', 'super_admin') NOT NULL COMMENT '用户角色',
         status ENUM('idle', 'busy', 'offline') DEFAULT 'idle' COMMENT '用户状态',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
@@ -73,10 +73,11 @@ router.post('/init', async (req, res) => {
       await connection.execute(`
         INSERT INTO users (username, password, role) VALUES 
         ('admin', ?, 'dispatcher'),
+        ('superadmin', ?, 'super_admin'),
         ('player1', ?, 'player'),
         ('player2', ?, 'player'),
         ('dispatcher2', ?, 'dispatcher')
-      `, [hashedPassword, hashedPassword, hashedPassword, hashedPassword]);
+      `, [hashedPassword, hashedPassword, hashedPassword, hashedPassword, hashedPassword]);
       
       console.log('✅ 测试用户创建成功');
 
@@ -423,11 +424,12 @@ router.post('/reset', async (req, res) => {
     await connection.execute(`
       INSERT INTO users (username, password, role, status) VALUES 
       ('admin', ?, 'dispatcher', 'idle'),
+      ('superadmin', ?, 'super_admin', 'idle'),
       ('dispatcher2', ?, 'dispatcher', 'idle'),
       ('player1', ?, 'player', 'idle'),
       ('player2', ?, 'player', 'idle'),
       ('player3', ?, 'player', 'busy')
-    `, [hashedPassword, hashedPassword, hashedPassword, hashedPassword, hashedPassword]);
+    `, [hashedPassword, hashedPassword, hashedPassword, hashedPassword, hashedPassword, hashedPassword]);
     
     console.log('✅ 创建新的测试用户');
 
@@ -458,6 +460,7 @@ router.post('/reset', async (req, res) => {
         taskCount: taskCount[0].count,
         testAccounts: [
           { username: 'admin', password: 'admin123', role: 'dispatcher', description: '主要派单员' },
+          { username: 'superadmin', password: 'admin123', role: 'super_admin', description: '超级管理员' },
           { username: 'dispatcher2', password: 'admin123', role: 'dispatcher', description: '副派单员' },
           { username: 'player1', password: 'admin123', role: 'player', description: '陪玩员1 (空闲)' },
           { username: 'player2', password: 'admin123', role: 'player', description: '陪玩员2 (空闲)' },
@@ -472,6 +475,45 @@ router.post('/reset', async (req, res) => {
     res.status(500).json({
       success: false,
       message: '数据库重置失败: ' + error.message
+    });
+  } finally {
+    connection.release();
+  }
+});
+
+// 重置超级管理员密码
+router.post('/reset-superadmin', async (req, res) => {
+  const connection = await pool.getConnection();
+  
+  try {
+    console.log('重置超级管理员密码...');
+    
+    // 生成新的密码哈希
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    // 更新超级管理员密码
+    await connection.execute(`
+      UPDATE users 
+      SET password = ? 
+      WHERE username = 'superadmin'
+    `, [hashedPassword]);
+    
+    console.log('✅ 超级管理员密码重置成功');
+    
+    res.json({
+      success: true,
+      message: '超级管理员密码重置成功',
+      data: {
+        username: 'superadmin',
+        password: 'admin123'
+      }
+    });
+    
+  } catch (error) {
+    console.error('重置超级管理员密码失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '重置超级管理员密码失败: ' + error.message
     });
   } finally {
     connection.release();

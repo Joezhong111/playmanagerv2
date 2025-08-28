@@ -166,7 +166,7 @@ class SuperAdminStatsService {
           COUNT(t.id) as completedTasks,
           SUM(t.price) as totalEarnings,
           AVG(TIMESTAMPDIFF(MINUTE, t.started_at, t.completed_at)) as avgDuration,
-          AVG(t.completion_rate) as avgRating,
+          0 as avgRating,
           COUNT(CASE WHEN t.status = 'cancelled' THEN 1 END) as cancelledTasks,
           (SUM(t.price) / NULLIF(COUNT(t.id), 0)) as avgEarningsPerTask
         FROM users u

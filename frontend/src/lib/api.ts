@@ -386,6 +386,30 @@ export const superAdminApi = {
     });
     return response.data;
   },
+  async getPerformanceRankings(params?: { role?: string; period?: string; limit?: number }): Promise<any> {
+    const response = await api.get<ApiResponse<any>>('/super-admin/stats/performance/rankings', { params });
+    return handleResponse(response);
+  },
+};
+
+// Player stats API
+export const playerStatsApi = {
+  async getDashboardOverview(): Promise<any> {
+    const response = await api.get<ApiResponse<any>>('/player/stats/dashboard');
+    return handleResponse(response);
+  },
+  async getMyTasks(filters?: { status?: string; page?: number; limit?: number }): Promise<any> {
+    const response = await api.get<ApiResponse<any>>('/player/stats/tasks/my', { params: filters });
+    return handleResponse(response);
+  },
+  async getAvailableTasks(filters?: { gameType?: string; minPrice?: number; maxPrice?: number; page?: number; limit?: number }): Promise<any> {
+    const response = await api.get<ApiResponse<any>>('/player/stats/tasks/available', { params: filters });
+    return handleResponse(response);
+  },
+  async getEarningsStats(period?: string): Promise<any> {
+    const response = await api.get<ApiResponse<any>>('/player/stats/earnings', { params: { period } });
+    return handleResponse(response);
+  },
 };
 
 // Health check
