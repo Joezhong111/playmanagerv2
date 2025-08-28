@@ -9,10 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, User, DollarSign, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { tasksApi, usersApi } from '@/lib/api';
-import type { User, CreateTaskRequest } from '@/types/api';
+import { tasksApi, usersApi, gameDictionaryApi } from '@/lib/api';
+import type { User, CreateTaskRequest, GameName, GameMode, GameDictionary } from '@/types/api';
 
 export default function CreateTaskPage() {
   const { user, isLoading } = useAuth();
@@ -20,6 +21,9 @@ export default function CreateTaskPage() {
   const [players, setPlayers] = useState<User[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gameDictionary, setGameDictionary] = useState<GameDictionary | null>(null);
+  const [availableGameModes, setAvailableGameModes] = useState<GameMode[]>([]);
+  const [isLoadingDictionary, setIsLoadingDictionary] = useState(true);
   
   const [formData, setFormData] = useState<CreateTaskRequest>({
     customer_name: '',
@@ -47,10 +51,11 @@ export default function CreateTaskPage() {
     }
   }, [user, isLoading, router]);
 
-  // Load players
+  // Load players and game dictionary
   useEffect(() => {
     if (user && (user.role === 'dispatcher' || user.role === 'super_admin')) {
       loadPlayers();
+      loadGameDictionary();
     }
   }, [user]);
 
@@ -67,11 +72,41 @@ export default function CreateTaskPage() {
     }
   };
 
+  const loadGameDictionary = async () => {
+    try {
+      setIsLoadingDictionary(true);
+      const dictionary = await gameDictionaryApi.getActiveDictionary();
+      setGameDictionary(dictionary);
+      // Load all common modes initially
+      setAvailableGameModes(dictionary.commonModes || []);
+    } catch (error: any) {
+      console.error('Error loading game dictionary:', error);
+      toast.error('加载游戏字典失败');
+    } finally {
+      setIsLoadingDictionary(false);
+    }
+  };
+
   const handleInputChange = (field: keyof CreateTaskRequest, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleGameNameChange = (gameName: string) => {
+    handleInputChange('game_name', gameName);
+    // Clear game mode when game name changes
+    handleInputChange('game_mode', '');
+    
+    // Find the selected game and update available modes
+    const selectedGame = gameDictionary?.gameNames.find(g => g.name === gameName);
+    if (selectedGame && selectedGame.modes) {
+      setAvailableGameModes(selectedGame.modes);
+    } else {
+      // If no specific modes for this game, show common modes
+      setAvailableGameModes(gameDictionary?.commonModes || []);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -218,23 +253,45 @@ export default function CreateTaskPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="game_name">游戏名称 *</Label>
-                        <Input
-                          id="game_name"
-                          value={formData.game_name}
-                          onChange={(e) => handleInputChange('game_name', e.target.value)}
-                          placeholder="如：王者荣耀"
-                          required
-                        />
+                        {isLoadingDictionary ? (
+                          <div className="h-10 border rounded-md flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          </div>
+                        ) : (
+                          <Select value={formData.game_name} onValueChange={handleGameNameChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="请选择游戏名称" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {gameDictionary?.gameNames.map((game) => (
+                                <SelectItem key={game.id} value={game.name}>
+                                  {game.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="game_mode">游戏模式 *</Label>
-                        <Input
-                          id="game_mode"
-                          value={formData.game_mode}
-                          onChange={(e) => handleInputChange('game_mode', e.target.value)}
-                          placeholder="如：排位赛"
-                          required
-                        />
+                        {isLoadingDictionary ? (
+                          <div className="h-10 border rounded-md flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          </div>
+                        ) : (
+                          <Select value={formData.game_mode} onValueChange={(value) => handleInputChange('game_mode', value)} disabled={!formData.game_name}>
+                            <SelectTrigger>
+                              <SelectValue placeholder={!formData.game_name ? "请先选择游戏名称" : "请选择游戏模式"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableGameModes.map((mode) => (
+                                <SelectItem key={mode.id} value={mode.name}>
+                                  {mode.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -202,3 +202,61 @@ export interface CompleteTaskResponse {
   completedTask: Task;
   nextTask?: Task | null;
 }
+
+// Game Dictionary Types
+export interface GameName {
+  id: number;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  modes?: GameMode[]; // 用于前端组织数据
+}
+
+export interface GameMode {
+  id: number;
+  name: string;
+  game_name_id: number | null;
+  game_name?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GameDictionary {
+  gameNames: (GameName & { modes: GameMode[] })[];
+  commonModes: GameMode[];
+}
+
+export interface CreateGameNameRequest {
+  name: string;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export interface UpdateGameNameRequest {
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CreateGameModeRequest {
+  name: string;
+  game_name_id?: number | null;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export interface UpdateGameModeRequest {
+  name: string;
+  game_name_id: number | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface DeleteDictionaryResponse {
+  deleted: boolean;
+  deactivated: boolean;
+}

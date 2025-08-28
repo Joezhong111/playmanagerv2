@@ -440,4 +440,60 @@ export const extensionApi = {
   },
 };
 
+// Game Dictionary API
+export const gameDictionaryApi = {
+  async getActiveDictionary(): Promise<GameDictionary> {
+    const response = await api.get<ApiResponse<GameDictionary>>('/game-dictionary/active');
+    return handleResponse(response);
+  },
+
+  async getGameModes(gameNameId?: number): Promise<GameMode[]> {
+    const response = await api.get<ApiResponse<GameMode[]>>('/game-dictionary/modes', {
+      params: gameNameId ? { gameNameId } : {}
+    });
+    return handleResponse(response);
+  },
+
+  // Super Admin functions
+  async getAllGameNames(): Promise<GameName[]> {
+    const response = await api.get<ApiResponse<GameName[]>>('/game-dictionary/names');
+    return handleResponse(response);
+  },
+
+  async createGameName(data: CreateGameNameRequest): Promise<GameName> {
+    const response = await api.post<ApiResponse<GameName>>('/game-dictionary/names', data);
+    return handleResponse(response);
+  },
+
+  async updateGameName(id: number, data: UpdateGameNameRequest): Promise<GameName> {
+    const response = await api.put<ApiResponse<GameName>>(`/game-dictionary/names/${id}`, data);
+    return handleResponse(response);
+  },
+
+  async deleteGameName(id: number): Promise<DeleteDictionaryResponse> {
+    const response = await api.delete<ApiResponse<DeleteDictionaryResponse>>(`/game-dictionary/names/${id}`);
+    return handleResponse(response);
+  },
+
+  async getAllGameModes(): Promise<GameMode[]> {
+    const response = await api.get<ApiResponse<GameMode[]>>('/game-dictionary/modes/all');
+    return handleResponse(response);
+  },
+
+  async createGameMode(data: CreateGameModeRequest): Promise<GameMode> {
+    const response = await api.post<ApiResponse<GameMode>>('/game-dictionary/modes', data);
+    return handleResponse(response);
+  },
+
+  async updateGameMode(id: number, data: UpdateGameModeRequest): Promise<GameMode> {
+    const response = await api.put<ApiResponse<GameMode>>(`/game-dictionary/modes/${id}`, data);
+    return handleResponse(response);
+  },
+
+  async deleteGameMode(id: number): Promise<DeleteDictionaryResponse> {
+    const response = await api.delete<ApiResponse<DeleteDictionaryResponse>>(`/game-dictionary/modes/${id}`);
+    return handleResponse(response);
+  },
+};
+
 export default api;

@@ -37,7 +37,8 @@ import {
   Users2,
   AlertCircle,
   CheckCircle,
-  Zap
+  Zap,
+  Database
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { superAdminApi } from '@/lib/api';
@@ -170,6 +171,10 @@ export default function SuperAdminPage() {
 
   const handleGoToDispatcher = () => {
     router.push('/dispatcher');
+  };
+  
+  const handleGoToDictionary = () => {
+    router.push('/super-admin/dictionary');
   };
 
   // User management handlers
@@ -412,6 +417,13 @@ export default function SuperAdminPage() {
               <Shield className="w-4 h-4 mr-1" />
               超级管理员
             </Badge>
+            <Button
+              onClick={handleGoToDictionary}
+              variant="outline"
+            >
+              <Database className="w-4 h-4 mr-2" />
+              字典管理
+            </Button>
             <Button
               onClick={handleGoToDispatcher}
               className="bg-blue-600 hover:bg-blue-700"

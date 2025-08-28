@@ -19,6 +19,7 @@ import superAdminRoutes from './routes/super-admin.js';
 import superAdminStatsRoutes from './routes/super-admin-stats.js';
 import dispatcherStatsRoutes from './routes/dispatcher-stats.js';
 import playerStatsRoutes from './routes/player-stats.js';
+import gameDictionaryRoutes from './routes/game-dictionary.js';
 import { taskController } from './controllers/task.controller.js';
 
 // Socket处理导入
@@ -90,6 +91,7 @@ app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/super-admin/stats', superAdminStatsRoutes);
 app.use('/api/dispatcher/stats', dispatcherStatsRoutes);
 app.use('/api/player/stats', playerStatsRoutes);
+app.use('/api/game-dictionary', gameDictionaryRoutes);
 
 // 静态文件服务 (可选，用于serve前端build后的文件)
 app.use(express.static('../frontend/dist'));
