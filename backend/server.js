@@ -1,9 +1,9 @@
+import { config } from 'dotenv';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import { config } from 'dotenv';
 import { testConnection, validateTimezone, getPoolStatus } from './config/database.js';
 import logger from './utils/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -118,17 +118,47 @@ app.use('*', (req, res, next) => {
 // 统一错误处理中间件
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
+// === 启动调试信息 ===
+console.log('--- Backend Startup Debug Info ---');
+console.log(`NODE_ENV read from .env is: ${process.env.NODE_ENV}`);
+console.log(`PORT read from .env is: ${process.env.PORT}`);
+console.log(`DB_HOST read from .env is: ${process.env.DB_HOST}`);
+console.log(`DB_DATABASE read from .env is: ${process.env.DB_DATABASE}`);
+console.log(`ALLOWED_ORIGINS read from .env is: ${process.env.ALLOWED_ORIGINS}`);
+console.log(`Current working directory: ${process.cwd()}`);
+console.log(`__dirname: ${import.meta.dirname || 'not available'}`);
+
+const PORT = process.env.PORT || 5000;
+console.log(`Final PORT value: ${PORT}`);
+
+console.log('Attempting to start server...');
 
 // 启动服务器
 server.listen(PORT, async () => {
+  console.log('=== Server.listen callback executed ===');
+  console.log(`Server is listening on port ${PORT}`);
   logger.info('🚀 派单系统后端启动成功');
   logger.info(`📡 服务器地址: http://localhost:${PORT}`);
   logger.info(`🔌 WebSocket端口: ${PORT}`);
   
   // 测试数据库连接和时区
-  await testConnection();
-  await validateTimezone();
+  console.log('Testing database connection...');
+  try {
+    await testConnection();
+    console.log('✅ Database connection test passed');
+  } catch (error) {
+    console.error('❌ Database connection test failed:', error.message);
+    console.error('Full error:', error);
+  }
+  
+  console.log('Validating timezone...');
+  try {
+    await validateTimezone();
+    console.log('✅ Timezone validation passed');
+  } catch (error) {
+    console.error('❌ Timezone validation failed:', error.message);
+    console.error('Full error:', error);
+  }
   
   // 显示连接池配置信息
   const poolStatus = getPoolStatus();
@@ -149,6 +179,23 @@ server.listen(PORT, async () => {
   logger.info('🧹 会话清理服务已启动');
   
   logger.info('✅ 系统就绪，等待连接...');
+  console.log('=== Server startup completed successfully ===');
+}).on('error', (error) => {
+  console.error('=== Server listen ERROR ===');
+  console.error('Error code:', error.code);
+  console.error('Error message:', error.message);
+  console.error('Full error object:', error);
+  
+  if (error.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use!`);
+    console.error('Please check what is running on this port:');
+    console.error(`   netstat -tlnp | grep :${PORT}`);
+  } else if (error.code === 'EACCES') {
+    console.error(`❌ Permission denied to bind to port ${PORT}`);
+    console.error('Try running with sudo or use a port > 1024');
+  }
+  
+  process.exit(1);
 });
 
 // 优雅关闭
