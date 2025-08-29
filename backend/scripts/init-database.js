@@ -31,9 +31,14 @@ const logger = {
 // 迁移文件列表（按依赖顺序排列）
 const migrations = [
   {
+    name: 'create_base_tables',
+    file: '00_create_base_tables.sql',
+    description: '创建基础表结构 (users, tasks, task_logs)'
+  },
+  {
     name: 'super_admin_features',
     file: 'add_super_admin_features.sql',
-    description: '创建超级管理员功能和基础表结构'
+    description: '创建超级管理员功能和优化表结构'
   },
   {
     name: 'task_queue_system', 
