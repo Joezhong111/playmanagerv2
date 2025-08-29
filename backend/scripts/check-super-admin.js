@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * 检查和修复超级管理员账户的脚本
+ * 检查和修复超级管理员账户的脚本 (不依赖外部包)
  */
 
 import mysql from 'mysql2/promise';
-import bcrypt from 'bcryptjs';
 import { config } from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -15,6 +14,12 @@ const __dirname = path.dirname(__filename);
 
 // 加载环境变量
 config({ path: path.join(__dirname, '..', '.env') });
+
+// 简单的密码哈希函数 (临时使用)
+async function simpleHash(password) {
+  const crypto = await import('crypto');
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
 
 async function checkAndFixSuperAdmin() {
   let connection;
@@ -45,8 +50,8 @@ async function checkAndFixSuperAdmin() {
     if (admins.length === 0) {
       console.log('❌ 未找到超级管理员账户，正在创建...\n');
       
-      // 创建超级管理员账户
-      const hashedPassword = await bcrypt.hash('admin123', 10);
+      // 创建超级管理员账户 (使用临时密码哈希)
+      const hashedPassword = await simpleHash('admin123');
       
       await connection.execute(`
         INSERT INTO users (username, password, role, is_active, status) 
@@ -57,6 +62,7 @@ async function checkAndFixSuperAdmin() {
       console.log('   用户名: super_admin');
       console.log('   密码: admin123');
       console.log('   角色: super_admin');
+      console.log('   ⚠️  注意：使用临时密码哈希，建议后续更新');
       
     } else {
       console.log('✅ 找到超级管理员账户:');
@@ -69,26 +75,13 @@ async function checkAndFixSuperAdmin() {
         console.log('');
       });
       
-      // 检查密码是否正确
-      const [passwordCheck] = await connection.execute(
-        'SELECT password FROM users WHERE username = ? AND role = ?',
-        ['super_admin', 'super_admin']
+      // 检查并重置密码
+      const newHashedPassword = await simpleHash('admin123');
+      await connection.execute(
+        'UPDATE users SET password = ? WHERE username = ? AND role = ?',
+        [newHashedPassword, 'super_admin', 'super_admin']
       );
-      
-      if (passwordCheck.length > 0) {
-        const isPasswordCorrect = await bcrypt.compare('admin123', passwordCheck[0].password);
-        console.log(`🔐 密码验证: ${isPasswordCorrect ? '✅ 正确' : '❌ 不正确'}`);
-        
-        if (!isPasswordCorrect) {
-          console.log('🔄 正在重置密码...');
-          const newHashedPassword = await bcrypt.hash('admin123', 10);
-          await connection.execute(
-            'UPDATE users SET password = ? WHERE username = ? AND role = ?',
-            [newHashedPassword, 'super_admin', 'super_admin']
-          );
-          console.log('✅ 密码已重置为: admin123');
-        }
-      }
+      console.log('✅ 密码已重置为: admin123');
     }
 
     // 检查 user_sessions 表
@@ -122,9 +115,36 @@ async function checkAndFixSuperAdmin() {
       console.log('✅ user_sessions 表已存在');
     }
 
+    // 检查 users 表的 role 字段是否支持 super_admin
+    console.log('\n🔍 检查 users 表结构...');
+    try {
+      const [columns] = await connection.execute(`
+        SELECT COLUMN_TYPE 
+        FROM information_schema.columns 
+        WHERE table_schema = ? AND table_name = 'users' AND column_name = 'role'
+      `, [process.env.DB_DATABASE]);
+      
+      if (columns.length > 0) {
+        const columnType = columns[0].COLUMN_TYPE;
+        console.log(`   role 字段类型: ${columnType}`);
+        
+        if (!columnType.includes('super_admin')) {
+          console.log('⚠️  role 字段不支持 super_admin，正在更新...');
+          await connection.execute(`
+            ALTER TABLE users 
+            MODIFY COLUMN role ENUM('player', 'dispatcher', 'admin', 'super_admin') DEFAULT 'player'
+          `);
+          console.log('✅ role 字段已更新');
+        }
+      }
+    } catch (error) {
+      console.log('❌ 检查表结构失败:', error.message);
+    }
+
     console.log('\n🎯 现在可以尝试登录了:');
     console.log('   用户名: super_admin');
     console.log('   密码: admin123');
+    console.log('\n⚠️  注意：如果登录失败，可能需要重启后端服务以应用更改');
 
   } catch (error) {
     console.error('❌ 检查失败:', error.message);
