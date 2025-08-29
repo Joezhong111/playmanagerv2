@@ -165,5 +165,3 @@ db.*
 # Hot reload and development server files
 .hot-update.js
 .hot-update.json
-
-scripts/
