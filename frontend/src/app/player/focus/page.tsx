@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,7 +85,7 @@ function FocusPageContent() {
   }, [taskId, user?.id, router]);
 
   // 播放提醒音效
-  const playNotificationSound = () => {
+  const playNotificationSound = useCallback(() => {
     if (!soundEnabled) return;
     try {
       const audio = new Audio('/notification-sound.wav');
@@ -99,7 +99,7 @@ function FocusPageContent() {
       console.warn('Error creating audio element:', error);
       generateBeepSound();
     }
-  };
+  }, [soundEnabled]);
 
   // 备用的蜂鸣音生成器
   const generateBeepSound = () => {
@@ -168,7 +168,7 @@ function FocusPageContent() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [startTime, task?.status, task?.duration]);
+  }, [startTime, task?.status, task?.duration, notificationsSent, playNotificationSound]);
 
   const handlePauseTask = async () => {
     if (!task || isActionLoading) return;

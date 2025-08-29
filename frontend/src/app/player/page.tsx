@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/lib/socket';
@@ -102,7 +102,7 @@ export default function PlayerPage() {
     }
   }, [user]);
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     try {
       setIsLoadingTasks(true);
       
@@ -199,9 +199,9 @@ export default function PlayerPage() {
     } finally {
       setIsLoadingTasks(false);
     }
-  };
+  }, [longIdleDetected, user?.id]);
 
-  const loadCompletedTasks = async (page = 1, reset = false) => {
+  const loadCompletedTasks = useCallback(async (page = 1, reset = false) => {
     try {
       setIsLoadingCompleted(true);
       
@@ -230,7 +230,7 @@ export default function PlayerPage() {
     } finally {
       setIsLoadingCompleted(false);
     }
-  };
+  }, [completedPagination.limit]);
 
   const toggleCompletedHistory = () => {
     const willShow = !showCompletedHistory;

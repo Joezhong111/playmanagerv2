@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -123,7 +123,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setIsLoadingUsers(true);
       const params: Record<string, string | number> = {};
@@ -138,9 +138,9 @@ export default function SuperAdminPage() {
     } finally {
       setIsLoadingUsers(false);
     }
-  };
+  }, [searchTerm, selectedRole]);
 
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     if (activeTab !== 'statistics') return;
     
     try {
@@ -166,7 +166,7 @@ export default function SuperAdminPage() {
     } finally {
       setIsLoadingStatistics(false);
     }
-  };
+  }, [activeTab, selectedPeriod]);
 
   const handleSearch = () => {
     loadUsers();
