@@ -11,14 +11,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // 加载环境变量 - 优先从backend目录加载，然后从项目根目录加载
 config({ path: path.join(__dirname, '..', '.env') });
 config({ path: path.join(__dirname, '..', '..', '.env') });
 config({ path: path.join(__dirname, '..', '..', '.env.local') });
 config({ path: path.join(__dirname, '..', '..', '.env.production') });
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // 日志工具
 const logger = {
