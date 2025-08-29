@@ -1,8 +1,9 @@
--- 基础表结构创建脚本
+-- 基础表结构创建脚本 (MariaDB 兼容版本)
+
 -- 创建用户表
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
+    username VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL,
     role ENUM('player', 'dispatcher', 'admin', 'super_admin') DEFAULT 'player',
     status ENUM('idle', 'busy', 'offline') DEFAULT 'idle',
@@ -10,13 +11,14 @@ CREATE TABLE IF NOT EXISTS users (
     last_login_at TIMESTAMP NULL,
     login_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    INDEX idx_username (username),
-    INDEX idx_role (role),
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- 创建用户表索引
+CREATE INDEX IF NOT EXISTS idx_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_created_at ON users(created_at);
 
 -- 创建任务表
 CREATE TABLE IF NOT EXISTS tasks (
@@ -38,20 +40,27 @@ CREATE TABLE IF NOT EXISTS tasks (
     completion_rate DECIMAL(5,2) COMMENT '完成率评分(1-5)',
     dispatcher_notes TEXT COMMENT '派单员备注',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    INDEX idx_dispatcher_id (dispatcher_id),
-    INDEX idx_player_id (player_id),
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at),
-    INDEX idx_status_player (status, player_id),
-    INDEX idx_dispatcher_status (dispatcher_id, status),
-    INDEX idx_created_status (created_at, status),
-    INDEX idx_date_status (DATE(created_at), status),
-    
-    FOREIGN KEY (dispatcher_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE SET NULL
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- 创建任务表索引
+CREATE INDEX IF NOT EXISTS idx_dispatcher_id ON tasks(dispatcher_id);
+CREATE INDEX IF NOT EXISTS idx_player_id ON tasks(player_id);
+CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_created_at ON tasks(created_at);
+CREATE INDEX IF NOT EXISTS idx_status_player ON tasks(status, player_id);
+CREATE INDEX IF NOT EXISTS idx_dispatcher_status ON tasks(dispatcher_id, status);
+CREATE INDEX IF NOT EXISTS idx_created_status ON tasks(created_at, status);
+CREATE INDEX IF NOT EXISTS idx_date_status ON tasks(DATE(created_at), status);
+
+-- 创建任务表外键约束
+ALTER TABLE tasks 
+ADD CONSTRAINT fk_tasks_dispatcher 
+FOREIGN KEY (dispatcher_id) REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE tasks 
+ADD CONSTRAINT fk_tasks_player 
+FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE SET NULL;
 
 -- 创建任务日志表
 CREATE TABLE IF NOT EXISTS task_logs (
@@ -62,16 +71,23 @@ CREATE TABLE IF NOT EXISTS task_logs (
     old_status VARCHAR(50),
     new_status VARCHAR(50),
     notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_task_id (task_id),
-    INDEX idx_user_id (user_id),
-    INDEX idx_action (action),
-    INDEX idx_created_at (created_at),
-    
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 创建任务日志表索引
+CREATE INDEX IF NOT EXISTS idx_task_id ON task_logs(task_id);
+CREATE INDEX IF NOT EXISTS idx_user_id ON task_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_action ON task_logs(action);
+CREATE INDEX IF NOT EXISTS idx_created_at ON task_logs(created_at);
+
+-- 创建任务日志表外键约束
+ALTER TABLE task_logs 
+ADD CONSTRAINT fk_task_logs_task 
+FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE;
+
+ALTER TABLE task_logs 
+ADD CONSTRAINT fk_task_logs_user 
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
 -- 创建用户会话管理表
 CREATE TABLE IF NOT EXISTS user_sessions (
@@ -81,14 +97,18 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     expires_at TIMESTAMP NOT NULL COMMENT '过期时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    
-    INDEX idx_user_id (user_id),
-    INDEX idx_expires_at (expires_at),
-    INDEX idx_is_active (is_active)
+    is_active BOOLEAN DEFAULT TRUE
 );
+
+-- 创建用户会话表索引
+CREATE INDEX IF NOT EXISTS idx_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_expires_at ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_is_active ON user_sessions(is_active);
+
+-- 创建用户会话表外键约束
+ALTER TABLE user_sessions 
+ADD CONSTRAINT fk_user_sessions_user 
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
 -- 插入初始数据
 INSERT INTO users (username, password, role, is_active, status) 
