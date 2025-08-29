@@ -8,8 +8,10 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test-timezone": "node ../scripts/test-timezone.js",
-    "setup-timezone": "mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME -p$DB_PASSWORD $DB_DATABASE < ../scripts/fix-timezone.sql"
+    "init-db": "node scripts/init-database.js",
+    "migrate": "node scripts/migrate.js",
+    "activate-admin": "node scripts/activate-super-admin.js",
+    "run-migration": "node scripts/run-migration.js"
   },
   "keywords": ["dispatch", "task", "management"],
   "author": "",
