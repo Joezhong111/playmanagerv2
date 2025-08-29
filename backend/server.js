@@ -34,6 +34,9 @@ config();
 const app = express();
 const server = createServer(app);
 
+// 信任反向代理 (非常重要！)
+app.set('trust proxy', true);
+
 // CORS 配置
 const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
