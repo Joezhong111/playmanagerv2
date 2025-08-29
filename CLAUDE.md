@@ -64,10 +64,12 @@ npm run build
 npm start
 
 # Database initialization (complete setup)
-node ../scripts/database/init-database.js
+node scripts/database-setup.js
 
-# Database migration (for updates)
-node ../scripts/database/migrate.js
+# Database management tool
+node scripts/db-manager.js init      # Initialize database
+node scripts/db-manager.js status    # Check database status
+node scripts/db-manager.js clean     # Clean expired data
 
 # Timezone testing
 npm run test-timezone
@@ -92,18 +94,21 @@ npm run lint
 
 ### Scripts and Utilities
 ```bash
+# Database management (统一管理)
+cd backend
+node scripts/database-setup.js               # Complete database initialization
+node scripts/db-manager.js init              # Initialize database
+node scripts/db-manager.js status            # Check database status
+node scripts/db-manager.js reset             # Reset database (clear all data)
+node scripts/db-manager.js clean             # Clean expired data
+
+# Super admin management
+node scripts/check-super-admin.js            # Check super admin status
+node scripts/verify-super-admin.js           # Verify super admin account
+node scripts/super-admin-manager.js          # Manage super admin
+
 # Testing and diagnostics
-node scripts/test/check-player-tasks.js      # Check player task status
-node scripts/test/test-backend-api.js        # Test backend API endpoints
-node scripts/test/create-test-task.js         # Create test tasks
-
-# Database management
-node scripts/database/init-database.js       # Initialize database
-node scripts/database/migrate.js              # Run database migrations
-node scripts/utils/activate-super-admin.js    # Activate super admin account
-
-# System utilities
-node scripts/utils/reset-user-status.js       # Reset user status
+node scripts/diagnose-database.js            # Database diagnostic tool
 ```
 
 ## Key Features
