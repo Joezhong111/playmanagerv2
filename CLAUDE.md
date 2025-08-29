@@ -32,7 +32,6 @@ playmanagerv2/
 │   ├── sockets/           # Socket.IO event handlers
 │   ├── utils/             # Utility functions and helpers
 │   ├── dto/               # Data Transfer Objects for validation
-│   ├── migrations/        # Database migration scripts
 │   └── server.js          # Main application entry point
 ├── frontend/               # Next.js application
 │   ├── src/
@@ -64,8 +63,11 @@ npm run build
 # Start production server
 npm start
 
-# Database initialization
-mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME -p$DB_PASSWORD $DB_DATABASE < ../scripts/fix-timezone.sql
+# Database initialization (complete setup)
+node ../scripts/database/init-database.js
+
+# Database migration (for updates)
+node ../scripts/database/migrate.js
 
 # Timezone testing
 npm run test-timezone
