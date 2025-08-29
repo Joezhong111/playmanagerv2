@@ -6,34 +6,8 @@
  */
 
 import mysql from 'mysql2/promise';
-import { config } from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getDatabaseConfig, checkDatabaseConfig, logger } from './db-config.js';
 import initializeDatabase from './database-setup.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// 加载环境变量
-config({ path: path.join(__dirname, '..', '.env') });
-config({ path: path.join(__dirname, '..', '..', '.env') });
-
-// 数据库连接配置
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USERNAME || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_DATABASE || 'dispatch_system'
-};
-
-// 日志工具
-const logger = {
-  info: (msg) => console.log(`ℹ️  ${msg}`),
-  success: (msg) => console.log(`✅ ${msg}`),
-  error: (msg) => console.log(`❌ ${msg}`),
-  warn: (msg) => console.log(`⚠️  ${msg}`)
-};
 
 async function showHelp() {
   console.log(`
@@ -58,6 +32,9 @@ async function showHelp() {
 
 async function showStatus() {
   logger.info('📊 数据库状态检查');
+  
+  // 显示配置信息
+  const { config: dbConfig } = checkDatabaseConfig();
   
   let connection;
   try {
@@ -118,6 +95,7 @@ async function resetDatabase() {
   logger.warn('⚠️  数据库重置操作');
   logger.info('这将清空所有数据，但保留表结构');
   
+  const dbConfig = getDatabaseConfig();
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
@@ -157,6 +135,7 @@ async function resetDatabase() {
 async function cleanDatabase() {
   logger.info('🧹 数据库清理');
   
+  const dbConfig = getDatabaseConfig();
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
@@ -226,7 +205,14 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// 检查是否是直接运行这个脚本
+if (import.meta.url.startsWith('file:') && process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {
+  main().catch(error => {
+    logger.error(`执行失败: ${error.message}`);
+    process.exit(1);
+  });
+} else if (!process.argv[1] || process.argv[1].includes('db-manager.js')) {
+  // 直接运行的情况
   main().catch(error => {
     logger.error(`执行失败: ${error.message}`);
     process.exit(1);

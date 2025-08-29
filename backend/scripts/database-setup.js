@@ -8,34 +8,7 @@
 
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
-import { config } from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// 加载环境变量
-config({ path: path.join(__dirname, '..', '.env') });
-config({ path: path.join(__dirname, '..', '..', '.env') });
-
-// 日志工具
-const logger = {
-  info: (msg) => console.log(`ℹ️  ${msg}`),
-  success: (msg) => console.log(`✅ ${msg}`),
-  error: (msg) => console.log(`❌ ${msg}`),
-  warn: (msg) => console.log(`⚠️  ${msg}`),
-  step: (num, msg) => console.log(`\n${num}️⃣  ${msg}`)
-};
-
-// 数据库连接配置
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USERNAME || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_DATABASE || 'dispatch_system'
-};
+import { getDatabaseConfig, checkDatabaseConfig, logger } from './db-config.js';
 
 // 默认超级管理员账户配置
 const SUPER_ADMIN = {
@@ -48,6 +21,9 @@ async function initializeDatabase() {
   logger.info('🚀 PlayManagerV2 数据库初始化开始');
   logger.info('=========================================');
 
+  // 检查和显示数据库配置
+  const { config: dbConfig } = checkDatabaseConfig();
+  
   let connection;
 
   try {
@@ -438,7 +414,12 @@ async function initializeDatabase() {
 }
 
 // 运行初始化
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url.startsWith('file:') && process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {
+  initializeDatabase().catch(error => {
+    console.error('脚本执行失败:', error);
+    process.exit(1);
+  });
+} else if (!process.argv[1] || process.argv[1].includes('database-setup.js')) {
   initializeDatabase().catch(error => {
     console.error('脚本执行失败:', error);
     process.exit(1);
