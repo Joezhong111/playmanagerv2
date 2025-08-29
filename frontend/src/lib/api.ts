@@ -218,7 +218,7 @@ const handleLongIdleRequest = async <T>(requestFn: () => Promise<T>, description
     return await requestQueue.add(requestFn);
   } catch (error: unknown) {
     // 如果是超时错误，提供更友好的错误信息
-    if ((error as any).code === 'ECONNABORTED') {
+    if ((error as { code?: string }).code === 'ECONNABORTED') {
       throw new Error(`${description}超时，可能由于长时间未活动导致。请稍后重试。`);
     }
     throw error;
@@ -456,23 +456,23 @@ export const superAdminApi = {
   },
 
   // Statistics
-  async getSystemOverview(): Promise<any> {
-    const response = await api.get<ApiResponse<any>>('/super-admin/stats/overview');
+  async getSystemOverview(): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>('/super-admin/stats/overview');
     return handleResponse(response);
   },
 
-  async getTrendAnalysis(period: string = '7d'): Promise<any> {
-    const response = await api.get<ApiResponse<any>>(`/super-admin/stats/trends`, { params: { period } });
+  async getTrendAnalysis(period: string = '7d'): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>(`/super-admin/stats/trends`, { params: { period } });
     return handleResponse(response);
   },
 
-  async getRevenueAnalysis(period: string = '30d'): Promise<any> {
-    const response = await api.get<ApiResponse<any>>(`/super-admin/stats/revenue/analysis`, { params: { period } });
+  async getRevenueAnalysis(period: string = '30d'): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>(`/super-admin/stats/revenue/analysis`, { params: { period } });
     return handleResponse(response);
   },
 
-  async getSystemHealth(): Promise<any> {
-    const response = await api.get<ApiResponse<any>>('/super-admin/stats/health');
+  async getSystemHealth(): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>('/super-admin/stats/health');
     return handleResponse(response);
   },
 
@@ -492,28 +492,28 @@ export const superAdminApi = {
     });
     return response.data;
   },
-  async getPerformanceRankings(params?: { role?: string; period?: string; limit?: number }): Promise<any> {
-    const response = await api.get<ApiResponse<any>>('/super-admin/stats/performance/rankings', { params });
+  async getPerformanceRankings(params?: { role?: string; period?: string; limit?: number }): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>('/super-admin/stats/performance/rankings', { params });
     return handleResponse(response);
   },
 };
 
 // Player stats API
 export const playerStatsApi = {
-  async getDashboardOverview(): Promise<any> {
-    const response = await api.get<ApiResponse<any>>('/player/stats/dashboard');
+  async getDashboardOverview(): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>('/player/stats/dashboard');
     return handleResponse(response);
   },
-  async getMyTasks(filters?: { status?: string; page?: number; limit?: number }): Promise<any> {
-    const response = await api.get<ApiResponse<any>>('/player/stats/tasks/my', { params: filters });
+  async getMyTasks(filters?: { status?: string; page?: number; limit?: number }): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>('/player/stats/tasks/my', { params: filters });
     return handleResponse(response);
   },
-  async getAvailableTasks(filters?: { gameType?: string; minPrice?: number; maxPrice?: number; page?: number; limit?: number }): Promise<any> {
-    const response = await api.get<ApiResponse<any>>('/player/stats/tasks/available', { params: filters });
+  async getAvailableTasks(filters?: { gameType?: string; minPrice?: number; maxPrice?: number; page?: number; limit?: number }): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>('/player/stats/tasks/available', { params: filters });
     return handleResponse(response);
   },
-  async getEarningsStats(period?: string): Promise<any> {
-    const response = await api.get<ApiResponse<any>>('/player/stats/earnings', { params: { period } });
+  async getEarningsStats(period?: string): Promise<unknown> {
+    const response = await api.get<ApiResponse<unknown>>('/player/stats/earnings', { params: { period } });
     return handleResponse(response);
   },
 };

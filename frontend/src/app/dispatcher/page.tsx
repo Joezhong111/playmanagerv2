@@ -122,7 +122,7 @@ export default function DispatcherPage() {
               if (p.id === data.userId) {
                 // 如果用户离线且不是忙碌状态，显示为离线；否则保持原状态
                 const newStatus = data.isOnline === false && data.status !== 'busy' ? 'offline' : data.status;
-                return { ...p, status: newStatus as any };
+                return { ...p, status: newStatus as 'idle' | 'busy' | 'offline' };
               }
               return p;
             });
@@ -136,7 +136,7 @@ export default function DispatcherPage() {
               if (p.id === data.userId) {
                 // 如果用户离线且不是忙碌状态，显示为离线；否则保持原状态
                 const newStatus = data.isOnline === false && data.status !== 'busy' ? 'offline' : data.status;
-                return { ...p, status: newStatus as any };
+                return { ...p, status: newStatus as 'idle' | 'busy' | 'offline' };
               }
               return p;
             });
@@ -289,7 +289,7 @@ export default function DispatcherPage() {
 
   const handleCompleteTask = async (taskId: number) => {
     try {
-      const result = await tasksApi.complete(taskId);
+      await tasksApi.complete(taskId);
       toast.success('任务已完成！');
       await loadTasks();
     } catch (error: unknown) {
@@ -332,16 +332,6 @@ export default function DispatcherPage() {
     return player?.username || `用户${playerId}`;
   };
 
-  const getPlayerStatusColor = (status: string) => {
-    switch (status) {
-      case 'idle':
-        return 'bg-green-100 text-green-800';
-      case 'busy':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -350,7 +340,6 @@ export default function DispatcherPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const idlePlayers = playerDetails.filter(player => player.status === 'idle');
 
   const taskStats = {
     total: tasks.length,

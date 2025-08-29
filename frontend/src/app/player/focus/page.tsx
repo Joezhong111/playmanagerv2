@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,8 +17,6 @@ import {
   Play,
   CheckCircle,
   Plus,
-  Bell,
-  BellOff,
   Volume2,
   VolumeX
 } from 'lucide-react';
@@ -26,7 +24,7 @@ import { toast } from 'sonner';
 import { tasksApi } from '@/lib/api';
 import type { Task } from '@/types/api';
 
-export default function FocusPage() {
+function FocusPageContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,7 +104,7 @@ export default function FocusPage() {
   // 备用的蜂鸣音生成器
   const generateBeepSound = () => {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioContext = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -139,7 +137,7 @@ export default function FocusPage() {
         // 检查是否超时（任务时长以分钟为单位）
         const taskDurationMs = (task?.duration || 0) * 60 * 1000;
         const remainingMs = taskDurationMs - elapsed;
-        const remainingMinutes = Math.floor(remainingMs / (60 * 1000));
+        // const remainingMinutes = Math.floor(remainingMs / (60 * 1000)); // 未使用的变量
         
         // 声音提醒逻辑：剩余15分0秒和5分0秒时提醒（精确到秒）
         if (remainingMs > 0) {
@@ -183,9 +181,9 @@ export default function FocusPage() {
       localStorage.removeItem(`task_${task.id}_start_time`);
       setStartTime(null);
       toast.success('任务已暂停');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error pausing task:', error);
-      toast.error(error.response?.data?.message || '暂停任务失败');
+      toast.error((error as { response?: { data?: { message?: string } } })?.response?.data?.message || '暂停任务失败');
     } finally {
       setIsActionLoading(false);
     }
@@ -202,9 +200,9 @@ export default function FocusPage() {
       setStartTime(newStartTime);
       localStorage.setItem(`task_${task.id}_start_time`, newStartTime.toString());
       toast.success('任务已恢复');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resuming task:', error);
-      toast.error(error.response?.data?.message || '恢复任务失败');
+      toast.error((error as { response?: { data?: { message?: string } } })?.response?.data?.message || '恢复任务失败');
     } finally {
       setIsActionLoading(false);
     }
@@ -220,9 +218,9 @@ export default function FocusPage() {
       localStorage.removeItem(`task_${task.id}_start_time`);
       toast.success('任务完成！');
       router.push('/player');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error completing task:', error);
-      toast.error(error.response?.data?.message || '完成任务失败');
+      toast.error((error as { response?: { data?: { message?: string } } })?.response?.data?.message || '完成任务失败');
     } finally {
       setIsActionLoading(false);
     }
@@ -248,25 +246,26 @@ export default function FocusPage() {
       console.log('延长申请成功:', result);
       toast.success(`已申请延长${minutes}分钟，等待派单员审核`);
       setShowExtensionButtons(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorObj = error as { response?: { data?: { message?: string }; status?: number }; request?: unknown; message?: string };
       console.error('延长申请失败 - 详细错误:', {
         error,
-        response: error.response,
-        request: error.request,
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
+        response: errorObj.response,
+        request: errorObj.request,
+        message: errorObj.message,
+        status: errorObj.response?.status,
+        data: errorObj.response?.data
       });
       
       let errorMessage = '申请延长失败';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.status === 500) {
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message;
+      } else if (errorObj.response?.status === 500) {
         errorMessage = '服务器内部错误，请检查后端日志';
-      } else if (error.response?.status === 404) {
+      } else if (errorObj.response?.status === 404) {
         errorMessage = 'API接口未找到，请检查后端服务';
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message;
       }
       
       toast.error(errorMessage);
@@ -583,5 +582,13 @@ export default function FocusPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function FocusPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <FocusPageContent />
+    </Suspense>
   );
 }

@@ -8,7 +8,6 @@ import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Clock, 
   DollarSign,
@@ -23,8 +22,7 @@ import {
   TrendingUp,
   History,
   ChevronDown,
-  ChevronUp,
-  Calendar
+  ChevronUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi, usersApi, playerStatsApi, handleLongIdleRequest, checkLongIdleStatus } from '@/lib/api';
@@ -45,11 +43,13 @@ export default function PlayerPage() {
   const [socketConnected, setSocketConnected] = useState(false);
   
   // Statistics state
-  const [stats, setStats] = useState<any>({
+  const [stats, setStats] = useState<{
+    overview: unknown;
+    earnings: unknown;
+  }>({
     overview: null,
     earnings: null
   });
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Completed tasks history state
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
@@ -105,7 +105,6 @@ export default function PlayerPage() {
   const loadTasks = async () => {
     try {
       setIsLoadingTasks(true);
-      setIsLoadingStats(true);
       
       // 检测长时间挂机状态
       const isLongIdle = checkLongIdleStatus();
@@ -199,7 +198,6 @@ export default function PlayerPage() {
       toast.error('加载任务失败: ' + (error instanceof Error ? error.message : '未知错误'));
     } finally {
       setIsLoadingTasks(false);
-      setIsLoadingStats(false);
     }
   };
 
@@ -213,17 +211,18 @@ export default function PlayerPage() {
         limit: completedPagination.limit || 10
       });
       
+      const resultData = result as { tasks: Task[]; pagination?: { total?: number; totalPages?: number } };
       if (reset) {
-        setCompletedTasks(result.tasks || []);
+        setCompletedTasks(resultData.tasks || []);
       } else {
-        setCompletedTasks(prev => [...prev, ...(result.tasks || [])]);
+        setCompletedTasks(prev => [...prev, ...(resultData.tasks || [])]);
       }
       
       setCompletedPagination(prev => ({
         ...prev,
         page,
-        total: result.pagination?.total || 0,
-        totalPages: result.pagination?.totalPages || 0
+        total: resultData.pagination?.total || 0,
+        totalPages: resultData.pagination?.totalPages || 0
       }));
     } catch (error: unknown) {
       console.error('Error loading completed tasks:', error);
@@ -287,7 +286,7 @@ export default function PlayerPage() {
       
       // 检查是否有下一个任务被激活
       if (result.nextTask) {
-        toast.success(`任务完成！下一个任务"${result.nextTask.game_name}"已准备就绪`);
+        toast.success(`任务完成！下一个任务&ldquo;${result.nextTask.game_name}&rdquo;已准备就绪`);
       } else {
         toast.success('任务完成！');
       }
@@ -416,11 +415,6 @@ export default function PlayerPage() {
     return texts[status] || status;
   };
 
-  const calculateEarnings = (tasks: Task[]) => {
-    return tasks
-      .filter(task => task.status === 'completed')
-      .reduce((sum, task) => sum + task.price, 0);
-  };
 
   const formatDuration = (minutes: number) => {
     if (minutes >= 1440) {
@@ -470,10 +464,11 @@ export default function PlayerPage() {
     return null;
   }
 
-  const completedTasksCount = stats.overview?.taskStats?.completedTasks || 0;
-  const totalEarnings = stats.overview?.taskStats?.totalEarnings || 0;
-  const todayEarnings = stats.overview?.todayStats?.todayEarnings || 0;
-  const availableTasksCount = stats.overview?.availableTasks || availableTasks.length;
+  const statsData = stats as { overview?: { taskStats?: { completedTasks?: number; totalEarnings?: number }; todayStats?: { todayEarnings?: number }; availableTasks?: number } };
+  const completedTasksCount = statsData.overview?.taskStats?.completedTasks || 0;
+  const totalEarnings = statsData.overview?.taskStats?.totalEarnings || 0;
+  const todayEarnings = statsData.overview?.todayStats?.todayEarnings || 0;
+  const availableTasksCount = statsData.overview?.availableTasks || availableTasks.length;
 
   return (
     <AppLayout title="陪玩员工作台">
@@ -492,7 +487,7 @@ export default function PlayerPage() {
                 <div className="mt-2 text-sm text-orange-700">
                   <p>系统检测到您已长时间未操作，连接可能不稳定。建议您：</p>
                   <ul className="list-disc list-inside mt-1">
-                    <li>点击"重新连接"按钮刷新数据</li>
+                    <li>点击&ldquo;重新连接&rdquo;按钮刷新数据</li>
                     <li>检查网络连接是否正常</li>
                     <li>如遇问题请尝试重新登录</li>
                   </ul>

@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
   Clock, 
-  Plus,
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
@@ -61,9 +60,9 @@ export default function ExtendTaskDurationDialog({
       toast.success(`任务时长已延长${formatTime(additionalMinutes)}`);
       onSuccess?.(updatedTask);
       onClose?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error extending task duration:', error);
-      toast.error(error.response?.data?.message || '延长任务时长失败');
+      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || '延长任务时长失败');
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +78,7 @@ export default function ExtendTaskDurationDialog({
           延长任务时间
         </CardTitle>
         <CardDescription>
-          直接为任务 "{task.game_name}" 延长时间
+          直接为任务 &ldquo;{task.game_name}&rdquo; 延长时间
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

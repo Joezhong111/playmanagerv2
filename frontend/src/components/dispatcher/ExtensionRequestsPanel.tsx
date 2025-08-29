@@ -32,7 +32,7 @@ export default function ExtensionRequestsPanel({ onRequestsUpdate }: ExtensionRe
     try {
       const data = await extensionApi.getExtensionRequests();
       setRequests(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading extension requests:', error);
       toast.error('加载延长申请失败');
     } finally {
@@ -58,9 +58,9 @@ export default function ExtensionRequestsPanel({ onRequestsUpdate }: ExtensionRe
       // 重新加载列表
       await loadRequests();
       onRequestsUpdate?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error reviewing extension request:', error);
-      toast.error(error.response?.data?.message || '审核失败');
+      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || '审核失败');
     } finally {
       setReviewingId(null);
     }

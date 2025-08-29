@@ -87,8 +87,8 @@ class SocketManager {
 
     // 监听所有事件以更新活动时间
     const originalOn = this.socket.on.bind(this.socket);
-    this.socket.on = ((event: string, listener: (...args: any[]) => void) => {
-      const wrappedListener = (...args: any[]) => {
+    this.socket.on = ((event: string, listener: (...args: unknown[]) => void) => {
+      const wrappedListener = (...args: unknown[]) => {
         this.updateActivity();
         return listener(...args);
       };

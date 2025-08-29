@@ -78,7 +78,7 @@ export default function DictionaryManagementPage() {
       ]);
       setGameNames(namesData);
       setGameModes(modesData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading dictionary data:', error);
       toast.error('加载字典数据失败');
     } finally {
@@ -107,8 +107,8 @@ export default function DictionaryManagementPage() {
       toast.success('游戏名称创建成功');
       resetForms();
       loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || '创建失败');
+    } catch (error) {
+      toast.error((error as { response?: { data?: { message?: string } } })?.response?.data?.message || '创建失败');
     }
   };
 
@@ -118,14 +118,14 @@ export default function DictionaryManagementPage() {
     try {
       await gameDictionaryApi.updateGameName(editingGameName.id, {
         name: gameNameForm.name,
-        is_active: gameNameForm.is_active,
-        sort_order: gameNameForm.sort_order
+        is_active: gameNameForm.is_active ?? true,
+        sort_order: gameNameForm.sort_order ?? 0
       });
       toast.success('游戏名称更新成功');
       resetForms();
       loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || '更新失败');
+    } catch (error) {
+      toast.error((error as { response?: { data?: { message?: string } } })?.response?.data?.message || '更新失败');
     }
   };
 
@@ -140,8 +140,8 @@ export default function DictionaryManagementPage() {
         toast.success('游戏名称删除成功');
       }
       loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || '删除失败');
+    } catch (error) {
+      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || '删除失败');
     }
   };
 
@@ -157,8 +157,8 @@ export default function DictionaryManagementPage() {
       toast.success('游戏模式创建成功');
       resetForms();
       loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || '创建失败');
+    } catch (error) {
+      toast.error((error as { response?: { data?: { message?: string } } })?.response?.data?.message || '创建失败');
     }
   };
 
@@ -168,15 +168,15 @@ export default function DictionaryManagementPage() {
     try {
       await gameDictionaryApi.updateGameMode(editingGameMode.id, {
         name: gameModeForm.name,
-        game_name_id: gameModeForm.game_name_id,
-        is_active: gameModeForm.is_active,
-        sort_order: gameModeForm.sort_order
+        game_name_id: gameModeForm.game_name_id!,
+        is_active: gameModeForm.is_active ?? true,
+        sort_order: gameModeForm.sort_order ?? 0
       });
       toast.success('游戏模式更新成功');
       resetForms();
       loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || '更新失败');
+    } catch (error) {
+      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || '更新失败');
     }
   };
 
@@ -191,8 +191,8 @@ export default function DictionaryManagementPage() {
         toast.success('游戏模式删除成功');
       }
       loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || '删除失败');
+    } catch (error) {
+      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || '删除失败');
     }
   };
 
