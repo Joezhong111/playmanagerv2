@@ -67,6 +67,7 @@ temp/
 *.sql
 !backend/scripts/*.sql
 !backend/scripts/migrations/*.sql
+!backend/migrations/*.sql
 migrate.js
 run_queue_migration.js
 execute-db-update.js
